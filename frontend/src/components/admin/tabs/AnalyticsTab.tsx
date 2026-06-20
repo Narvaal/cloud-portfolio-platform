@@ -77,73 +77,69 @@ export function AnalyticsTab() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Visitors by country */}
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-zinc-500">
-            Visitors by Country
-          </p>
-          <div className="space-y-3">
-            {mockVisitors.map((v) => (
-              <div key={v.country}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                    <span>{v.flag}</span>
-                    <span>{v.name}</span>
-                  </span>
-                  <span className="font-mono text-zinc-500">{v.count}</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
-                  <div
-                    className="h-1.5 rounded-full bg-accent-500"
-                    style={{ width: `${(v.count / maxCount) * 100}%` }}
-                  />
-                </div>
+      {/* Visitors by country */}
+      <div className="mb-6 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-zinc-500">
+          Visitors by Country
+        </p>
+        <div className="space-y-3">
+          {mockVisitors.map((v) => (
+            <div key={v.country}>
+              <div className="mb-1 flex items-center justify-between text-xs">
+                <span className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                  <span>{v.flag}</span>
+                  <span>{v.name}</span>
+                </span>
+                <span className="font-mono text-zinc-500">{v.count}</span>
               </div>
-            ))}
-          </div>
+              <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
+                <div
+                  className="h-1.5 rounded-full bg-accent-500"
+                  style={{ width: `${(v.count / maxCount) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
 
-        {/* Messages table */}
-        <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
-            <p className="font-mono text-xs font-semibold uppercase tracking-widest text-zinc-500">
-              Contact Messages
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-100 dark:border-zinc-800">
-                  <th className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Name</th>
-                  <th className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Email</th>
-                  <th className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Message</th>
-                  <th className="px-5 py-2.5 text-right font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Date</th>
+      {/* Messages table — full width */}
+      <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-zinc-500">
+            Contact Messages
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-100 dark:border-zinc-800">
+                <th className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Name</th>
+                <th className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Email</th>
+                <th className="w-full px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Message</th>
+                <th className="px-5 py-2.5 text-right font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mockMessages.map((msg, i) => (
+                <tr
+                  key={msg.id}
+                  className={`border-b border-zinc-50 last:border-0 dark:border-zinc-800/60 ${
+                    i % 2 === 0 ? '' : 'bg-zinc-50/50 dark:bg-zinc-800/20'
+                  }`}
+                >
+                  <td className="whitespace-nowrap px-5 py-3 font-medium text-zinc-900 dark:text-zinc-50">
+                    {msg.name}
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">{msg.email}</td>
+                  <td className="px-5 py-3 text-xs text-zinc-600 dark:text-zinc-400">{msg.message}</td>
+                  <td className="whitespace-nowrap px-5 py-3 text-right font-mono text-xs text-zinc-400">
+                    {timeAgo(msg.date)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {mockMessages.map((msg, i) => (
-                  <tr
-                    key={msg.id}
-                    className={`border-b border-zinc-50 last:border-0 dark:border-zinc-800/60 ${
-                      i % 2 === 0 ? '' : 'bg-zinc-50/50 dark:bg-zinc-800/20'
-                    }`}
-                  >
-                    <td className="whitespace-nowrap px-5 py-3 font-medium text-zinc-900 dark:text-zinc-50">
-                      {msg.name}
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">{msg.email}</td>
-                    <td className="max-w-xs px-5 py-3 text-xs text-zinc-600 dark:text-zinc-400">
-                      <p className="line-clamp-2">{msg.message}</p>
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3 text-right font-mono text-xs text-zinc-400">
-                      {timeAgo(msg.date)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
