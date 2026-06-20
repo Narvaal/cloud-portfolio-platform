@@ -25,7 +25,7 @@ export function CertificationsSection() {
               <h3 className="text-base leading-snug">{cert.name}</h3>
             </div>
 
-            <div className="mb-4 flex items-center justify-between gap-2 text-sm text-zinc-500">
+            <div className="mb-4 flex items-center justify-between gap-2 text-xs italic text-zinc-400 dark:text-zinc-500">
               <span>{cert.issuer}</span>
               {cert.year && <span className="shrink-0">{cert.year}</span>}
             </div>
