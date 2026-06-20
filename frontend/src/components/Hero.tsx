@@ -4,6 +4,7 @@ import { ArrowDown, Download, Mail } from 'lucide-react'
 import { Button } from './ui/Button'
 import { Container } from './ui/Container'
 import { GitHubIcon, LinkedInIcon } from './ui/BrandIcons'
+import { GitHubPanel } from './GitHubPanel'
 import { profile } from '../data/profile'
 import { useLang } from '../i18n'
 import type { SocialIcon } from '../types'
@@ -91,64 +92,71 @@ export function Hero() {
   return (
     <section className="relative flex min-h-svh items-center pb-16 pt-24">
       <Container>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="max-w-2xl"
-        >
-          <div className="mb-4 h-5">
-            <p className="font-mono text-sm font-medium text-accent-500">
-              <ScrambleText text={greetings[greetingIdx]} onSettled={handleSettled} />
+        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_360px]">
+
+          {/* Presentation */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="mb-4 h-5">
+              <p className="font-mono text-sm font-medium text-accent-500">
+                <ScrambleText text={greetings[greetingIdx]} onSettled={handleSettled} />
+              </p>
+            </div>
+
+            <h1 className="mb-3 text-5xl sm:text-7xl">{profile.name}</h1>
+
+            <p className="mb-6 text-xl font-medium text-accent-600 dark:text-accent-400 sm:text-2xl">
+              {t.hero.role}
             </p>
-          </div>
 
-          <h1 className="mb-3 text-5xl sm:text-7xl">{profile.name}</h1>
+            <p className="mb-8 max-w-xl text-lg leading-relaxed text-zinc-600 dark:text-zinc-400">
+              {t.hero.tagline}
+            </p>
 
-          <p className="mb-6 text-xl font-medium text-accent-600 dark:text-accent-400 sm:text-2xl">
-            {t.hero.role}
-          </p>
+            <div className="flex flex-wrap items-center gap-4">
+              <Button href="#projects" size="lg">
+                {t.hero.viewWork}
+              </Button>
+              <Button
+                href={t.hero.resumeUrl}
+                variant="secondary"
+                size="lg"
+                download
+              >
+                <Download className="size-4" />
+                {t.hero.downloadResume}
+              </Button>
+            </div>
 
-          <p className="mb-8 max-w-xl text-lg leading-relaxed text-zinc-600 dark:text-zinc-400">
-            {t.hero.tagline}
-          </p>
+            <div className="mt-10 flex items-center gap-4">
+              {profile.socials.map((social) => {
+                const Icon = iconMap[social.icon]
+                return (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    target={social.icon !== 'mail' ? '_blank' : undefined}
+                    rel="noreferrer"
+                    aria-label={social.label}
+                    className="text-zinc-400 transition-colors hover:text-accent-500 dark:text-zinc-500 dark:hover:text-accent-400"
+                  >
+                    <Icon className="size-5" />
+                  </a>
+                )
+              })}
+              <span className="ml-1 text-sm text-zinc-400 dark:text-zinc-600">
+                {t.hero.location}
+              </span>
+            </div>
+          </motion.div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <Button href="#projects" size="lg">
-              {t.hero.viewWork}
-            </Button>
-            <Button
-              href={t.hero.resumeUrl}
-              variant="secondary"
-              size="lg"
-              download
-            >
-              <Download className="size-4" />
-              {t.hero.downloadResume}
-            </Button>
-          </div>
+          {/* GitHub Activity Panel */}
+          <GitHubPanel />
 
-          <div className="mt-10 flex items-center gap-4">
-            {profile.socials.map((social) => {
-              const Icon = iconMap[social.icon]
-              return (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  target={social.icon !== 'mail' ? '_blank' : undefined}
-                  rel="noreferrer"
-                  aria-label={social.label}
-                  className="text-zinc-400 transition-colors hover:text-accent-500 dark:text-zinc-500 dark:hover:text-accent-400"
-                >
-                  <Icon className="size-5" />
-                </a>
-              )
-            })}
-            <span className="ml-1 text-sm text-zinc-400 dark:text-zinc-600">
-              {t.hero.location}
-            </span>
-          </div>
-        </motion.div>
+        </div>
       </Container>
 
       <motion.div

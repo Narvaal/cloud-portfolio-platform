@@ -58,6 +58,13 @@ export interface Translations {
     built: string
     visitorsLabel: string
   }
+  github: {
+    title: string
+    commits: string
+    repos: string
+    noActivity: string
+    starsLabel: string
+  }
   nav: NavItem[]
   langSwitcher: {
     ariaLabel: string

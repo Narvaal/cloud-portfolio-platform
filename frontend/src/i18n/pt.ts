@@ -196,4 +196,12 @@ export const pt: Translations = {
     built: 'Feito com React + AWS.',
     visitorsLabel: 'visitantes',
   },
+
+  github: {
+    title: 'Atividade no GitHub',
+    commits: 'Commits Recentes',
+    repos: 'Repositórios',
+    noActivity: 'Nenhuma atividade recente',
+    starsLabel: 'estrelas',
+  },
 }

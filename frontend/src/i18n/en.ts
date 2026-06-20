@@ -195,4 +195,12 @@ export const en: Translations = {
     built: 'Built with React + AWS.',
     visitorsLabel: 'visitors',
   },
+
+  github: {
+    title: 'GitHub Activity',
+    commits: 'Recent Commits',
+    repos: 'Repositories',
+    noActivity: 'No recent activity',
+    starsLabel: 'stars',
+  },
 }
