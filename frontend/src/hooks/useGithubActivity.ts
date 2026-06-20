@@ -20,19 +20,46 @@ export interface GithubActivity {
   repos: GithubRepo[]
 }
 
+const CACHE_KEY = 'github_activity_cache'
+const CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
 const SKIP_REPOS = new Set(['build-your-own-x', 'awesome-electronics'])
 
+function readCache(): GithubActivity | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const { data, ts } = JSON.parse(raw)
+    if (Date.now() - ts > CACHE_TTL) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+function writeCache(data: GithubActivity) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() }))
+  } catch {
+    // storage full or unavailable
+  }
+}
+
 export function useGithubActivity(username: string) {
-  const [data, setData] = useState<GithubActivity | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<GithubActivity | null>(() => readCache())
+  const [loading, setLoading] = useState(() => readCache() === null)
 
   useEffect(() => {
+    if (readCache()) return // still fresh, skip fetch
+
     async function load() {
       try {
         const reposRes = await fetch(
           `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=public`,
         )
+        if (!reposRes.ok) return // rate limited or error — keep showing cached/empty
         const rawRepos = await reposRes.json()
+
         const repos: GithubRepo[] = (Array.isArray(rawRepos) ? rawRepos : [])
           .filter((r: { name: string }) => !SKIP_REPOS.has(r.name))
           .slice(0, 4)
@@ -44,12 +71,12 @@ export function useGithubActivity(username: string) {
             url: r.html_url,
           }))
 
-        // fetch latest 2 commits per repo in parallel
         const commitsByRepo = await Promise.all(
           repos.map(async (repo) => {
             const res = await fetch(
               `https://api.github.com/repos/${username}/${repo.name}/commits?per_page=2`,
             )
+            if (!res.ok) return []
             const raw = await res.json()
             return (Array.isArray(raw) ? raw : []).map((c: { sha: string; commit: { message: string; author: { date: string } } }) => ({
               repo: repo.name,
@@ -65,7 +92,9 @@ export function useGithubActivity(username: string) {
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
           .slice(0, 6)
 
-        setData({ commits, repos })
+        const result = { commits, repos }
+        writeCache(result)
+        setData(result)
       } catch {
         // silent fail
       } finally {
