@@ -98,7 +98,7 @@ export const pt: Translations = {
       {
         title: 'Bank Simulator',
         subtitle: 'Plataforma Bancária Full-Stack',
-        year: 'ABR - 2026',
+        year: 'Abr - 2026',
         description:
           'Bank Simulator é uma plataforma bancária full-stack desenvolvida para explorar arquitetura backend real, controle seguro de transações e boas práticas de design de software.\n\nO backend foi construído com Java + Spring, organizado em uma arquitetura em camadas inspirada na Clean Architecture (Application, Domain e Infrastructure). Inclui transações com garantias ACID, criptografia RSA por conta — chave pública armazenada no banco e chave privada mantida em memória — autenticação JWT e Google OAuth, fluxos de verificação de e-mail e integração com serviços externos via AWS Secrets Manager. A camada de banco usa JDBC puro, sem ORM, com PostgreSQL em produção e H2 em memória para testes automatizados seguindo TDD.\n\nO frontend, desenvolvido com React + TypeScript, abrange dashboard de conta, histórico de transações, visualização de saldo e uma interface de mercado de ativos totalmente conectada às APIs do backend.',
         stack: ['Java', 'Spring', 'JDBC', 'PostgreSQL', 'React', 'TypeScript', 'AWS', 'TDD'],
@@ -110,7 +110,7 @@ export const pt: Translations = {
       {
         title: 'MyLittleLab',
         subtitle: 'Simulação de Partículas',
-        year: 'MAIO - 2025',
+        year: 'Mai - 2025',
         description:
           'O MyLittleLab é uma simulação de partículas interativa desenvolvida para explorar como regras simples podem gerar comportamentos complexos e orgânicos. O projeto foi inspirado no trabalho Cluester, de Jeffrey Ventrella, e utiliza conceitos de sistemas emergentes para criar uma espécie de ecossistema virtual onde milhares de partículas interagem entre si.\n\nDurante o desenvolvimento, um dos maiores desafios foi trabalhar com o Three.js, principalmente entender como funciona a renderização em tempo real e como otimizar a criação e atualização de milhares de elementos simultaneamente. Foi necessário pensar bastante em performance, já que uma aplicação desse tipo precisa rodar bem em diferentes dispositivos.\n\nPara isso, implementei otimizações para adaptar a experiência conforme o hardware do usuário. Por exemplo, em dispositivos móveis a simulação reduz automaticamente a carga de processamento, diminuindo a quantidade de partículas e ajustando alguns cálculos para manter uma boa taxa de FPS, enquanto em computadores com mais capacidade ela consegue entregar uma experiência mais completa.\n\nO objetivo do projeto foi não apenas criar uma visualização bonita, mas também aplicar conceitos de computação gráfica, otimização e desenvolvimento web moderno usando Three.js, Node.js e tecnologias de frontend.',
         stack: ['Three.js', 'Bootstrap', 'Node.js'],
@@ -122,7 +122,7 @@ export const pt: Translations = {
       },
       {
         title: "Erwin's Cat",
-        year: 'DEZ - 2023',
+        year: 'Dez - 2023',
         description:
           'Este projeto foi desenvolvido durante uma Game Jam com o tema de terror, envolvendo os requisitos de criar um jogo com dinossauros e viagem no tempo. Foi um dos meus primeiros projetos em desenvolvimento de jogos e meu primeiro contato com a engine Godot, com um prazo extremamente limitado de apenas duas semanas para desenvolver uma experiência completa.\n\nO jogo é uma experiência 3D de suspense onde o jogador assume o papel de Alexandre Khalst, um professor de biologia preso em uma instalação de pesquisa de uma organização governamental. Sem acesso ao mundo exterior, o jogador precisa utilizar um computador dentro da cela para monitorar câmeras espalhadas pelo ambiente e acompanhar dinossauros através de uma tecnologia de observação temporal.\n\nDurante o desenvolvimento, um dos maiores desafios foi aprender a construir uma experiência 3D completa do zero, incluindo movimentação do personagem, interação com objetos, criação do ambiente, sistema de câmeras, interface e lógica de gameplay. Também desenvolvi sistemas para controlar os dinossauros, criando rotas de movimentação e comportamentos que permitissem ao jogador observar e coletar informações necessárias para avançar na história.\n\nAlém da parte técnica, trabalhei na construção da experiência do jogador, criando uma ambientação de terror, objetivos, elementos narrativos e diferentes caminhos que levam a finais distintos. Mesmo com o tempo limitado, conseguimos entregar um jogo funcional, com uma experiência completa de gameplay, desde exploração até resolução de objetivos.\n\nEsse projeto foi uma grande oportunidade de aprender sobre desenvolvimento de jogos, principalmente sobre como transformar uma ideia em uma experiência interativa utilizando programação, criação de sistemas e design de gameplay.',
         stack: ['Godot', 'GDScript', '3D'],

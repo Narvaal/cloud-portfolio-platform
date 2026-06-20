@@ -27,7 +27,7 @@ export function CertificationsSection() {
 
             <p className="mb-4 text-sm text-zinc-500">
               {cert.issuer}
-              {cert.year && <span className="text-zinc-400"> — {cert.year}</span>}
+              {cert.year && <span className="text-zinc-400"> - {cert.year}</span>}
             </p>
 
             {cert.credentialUrl && cert.credentialUrl !== '#' && (
