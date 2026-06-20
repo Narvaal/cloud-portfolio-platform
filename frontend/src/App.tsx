@@ -1,26 +1,18 @@
-import { Navbar } from './components/Navbar'
-import { Hero } from './components/Hero'
-import { About } from './components/About'
-import { ExperienceSection } from './components/ExperienceSection'
-import { ProjectsSection } from './components/ProjectsSection'
-import { CertificationsSection } from './components/CertificationsSection'
-import { ContactSection } from './components/ContactSection'
-import { Footer } from './components/Footer'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { Portfolio } from './Portfolio'
+import { AdminPage } from './components/admin/AdminPage'
+import { LangProvider } from './i18n'
 
 function App() {
   return (
-    <>
-      <Navbar />
-      <main>
-        <Hero />
-        <About />
-        <ExperienceSection />
-        <ProjectsSection />
-        <CertificationsSection />
-        <ContactSection />
-      </main>
-      <Footer />
-    </>
+    <BrowserRouter>
+      <LangProvider>
+        <Routes>
+          <Route path="/" element={<Portfolio />} />
+          <Route path="/admin/*" element={<AdminPage />} />
+        </Routes>
+      </LangProvider>
+    </BrowserRouter>
   )
 }
 
