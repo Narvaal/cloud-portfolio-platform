@@ -1,0 +1,65 @@
+import type { NavItem, ExperienceItem, Project, VideoProject, Certification } from '../types'
+
+export type Lang = 'en' | 'pt'
+
+export interface Translations {
+  hero: {
+    role: string
+    tagline: string
+    viewWork: string
+    downloadResume: string
+    scroll: string
+    resumeUrl: string
+    location: string
+  }
+  about: {
+    eyebrow: string
+    title: string
+    paragraphs: string[]
+    skillsLabel: string
+    skills: string[]
+  }
+  experience: {
+    eyebrow: string
+    title: string
+    items: ExperienceItem[]
+  }
+  projects: {
+    eyebrow: string
+    title: string
+    featuredLabel: string
+    tryItLabel: string
+    expandLabel: string
+    collapseLabel: string
+    items: Project[]
+    showcaseLabel: string
+    showcaseItems: VideoProject[]
+  }
+  certifications: {
+    eyebrow: string
+    title: string
+    verifyLabel: string
+    items: Certification[]
+  }
+  contact: {
+    eyebrow: string
+    title: string
+    description: string
+    availability: string
+    nameLabel: string
+    emailLabel: string
+    messageLabel: string
+    send: string
+    sending: string
+    success: string
+    error: string
+  }
+  footer: {
+    built: string
+    visitorsLabel: string
+  }
+  nav: NavItem[]
+  langSwitcher: {
+    ariaLabel: string
+  }
+}

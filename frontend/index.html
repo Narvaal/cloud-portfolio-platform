@@ -2,9 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <meta
+      name="description"
+      content="Cloud Portfolio Platform — a cloud-native portfolio showcasing backend, cloud and software architecture engineering."
+    />
+    <meta property="og:title" content="Cloud Portfolio Platform" />
+    <meta
+      property="og:description"
+      content="A cloud-native portfolio showcasing backend, cloud and software architecture engineering."
+    />
+    <meta property="og:type" content="website" />
+    <title>Cloud Portfolio Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700&family=Dancing+Script:wght@700&family=Oswald:wght@700&family=Merriweather:wght@700&family=Raleway:wght@700&family=Space+Grotesk:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Apply the saved (or system) theme before paint to avoid a flash.
+      (() => {
+        const saved = localStorage.getItem('theme')
+        const prefersDark = window.matchMedia(
+          '(prefers-color-scheme: dark)',
+        ).matches
+        if (saved === 'dark' || (!saved && prefersDark)) {
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
