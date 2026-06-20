@@ -18,18 +18,16 @@ export function CertificationsSection() {
             key={i}
             className="flex flex-col rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/50"
           >
-            <div className="mb-4">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-accent-500/10">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-500/10">
                 <Award className="size-5 text-accent-500" />
               </span>
+              <h3 className="text-base leading-snug">{cert.name}</h3>
             </div>
 
-            <h3 className="mb-1 text-base leading-snug">{cert.name}</h3>
             <p className="mb-4 text-sm text-zinc-500">
               {cert.issuer}
-              {cert.year && (
-                <span className="ml-2 font-mono text-xs text-zinc-400">{cert.year}</span>
-              )}
+              {cert.year && <span className="text-zinc-400"> — {cert.year}</span>}
             </p>
 
             {cert.credentialUrl && cert.credentialUrl !== '#' && (
