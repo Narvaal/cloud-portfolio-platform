@@ -104,24 +104,45 @@ export function AnalyticsTab() {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-zinc-500">
-            Contact Messages
-          </p>
-          <div className="space-y-4">
-            {mockMessages.map((msg) => (
-              <div key={msg.id} className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0 dark:border-zinc-800">
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{msg.name}</span>
-                    <span className="ml-2 text-xs text-zinc-400">{msg.email}</span>
-                  </div>
-                  <span className="shrink-0 font-mono text-[10px] text-zinc-400">{timeAgo(msg.date)}</span>
-                </div>
-                <p className="line-clamp-2 text-xs leading-relaxed text-zinc-500">{msg.message}</p>
-              </div>
-            ))}
+        {/* Messages table */}
+        <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
+            <p className="font-mono text-xs font-semibold uppercase tracking-widest text-zinc-500">
+              Contact Messages
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-100 dark:border-zinc-800">
+                  <th className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Name</th>
+                  <th className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Email</th>
+                  <th className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Message</th>
+                  <th className="px-5 py-2.5 text-right font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mockMessages.map((msg, i) => (
+                  <tr
+                    key={msg.id}
+                    className={`border-b border-zinc-50 last:border-0 dark:border-zinc-800/60 ${
+                      i % 2 === 0 ? '' : 'bg-zinc-50/50 dark:bg-zinc-800/20'
+                    }`}
+                  >
+                    <td className="whitespace-nowrap px-5 py-3 font-medium text-zinc-900 dark:text-zinc-50">
+                      {msg.name}
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">{msg.email}</td>
+                    <td className="max-w-xs px-5 py-3 text-xs text-zinc-600 dark:text-zinc-400">
+                      <p className="line-clamp-2">{msg.message}</p>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3 text-right font-mono text-xs text-zinc-400">
+                      {timeAgo(msg.date)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
