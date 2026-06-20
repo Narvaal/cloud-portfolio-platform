@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+
+/* Enable class-based dark mode (toggle), instead of OS-only */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+  /* Brand accent — cyan/AWS-ish. Adjust here to re-theme the whole site. */
+  --color-accent-50: #ecfeff;
+  --color-accent-100: #cffafe;
+  --color-accent-200: #a5f3fc;
+  --color-accent-300: #67e8f9;
+  --color-accent-400: #22d3ee;
+  --color-accent-500: #06b6d4;
+  --color-accent-600: #0891b2;
+  --color-accent-700: #0e7490;
+  --color-accent-800: #155e75;
+  --color-accent-900: #164e63;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem; /* offset for sticky navbar when anchoring */
+  }
+
+  body {
+    @apply bg-white text-zinc-600 antialiased;
+    @apply dark:bg-zinc-950 dark:text-zinc-400;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-semibold tracking-tight text-zinc-900 dark:text-zinc-50;
+  }
+
+  ::selection {
+    @apply bg-accent-500/30;
+  }
+}

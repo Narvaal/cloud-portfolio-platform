@@ -1,0 +1,10 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <!-- Tailwind v4 puts its config in CSS (@theme, @custom-variant, @apply, @import 'tailwindcss').
+         IntelliJ's generic CSS inspector flags these as unknown — silence the false positives. -->
+    <inspection_tool class="CssUnknownAtRule" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="CssUnresolvedCustomProperty" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="CssUnusedSymbol" enabled="false" level="WARNING" enabled_by_default="false" />
+  </profile>
+</component>
