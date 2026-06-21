@@ -1,20 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 
 export type Theme = 'light' | 'dark'
 
 function getInitialTheme(): Theme {
   if (typeof document !== 'undefined') {
-    return document.documentElement.classList.contains('dark')
-      ? 'dark'
-      : 'light'
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   }
   return 'dark'
 }
 
-/**
- * Dark/light theme with persistence. The initial class is applied by an inline
- * script in index.html (avoids a flash); this hook keeps React in sync.
- */
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
@@ -24,9 +19,23 @@ export function useTheme() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  const toggle = useCallback(() => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
-  }, [])
+  const toggle = useCallback(
+    (origin?: { x: number; y: number }) => {
+      const next: Theme = theme === 'dark' ? 'light' : 'dark'
+
+      if (!origin || !('startViewTransition' in document)) {
+        setTheme(next)
+        return
+      }
+
+      document.documentElement.style.setProperty('--vt-x', `${origin.x}px`)
+      document.documentElement.style.setProperty('--vt-y', `${origin.y}px`)
+      ;(document as Document & { startViewTransition(cb: () => void): void }).startViewTransition(
+        () => { flushSync(() => setTheme(next)) },
+      )
+    },
+    [theme],
+  )
 
   return { theme, toggle }
 }

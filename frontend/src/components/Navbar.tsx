@@ -81,7 +81,10 @@ export function Navbar() {
 
             {/* Theme toggle */}
             <button
-              onClick={toggle}
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                toggle({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+              }}
               aria-label="Toggle theme"
               className="rounded-lg p-2 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
             >
