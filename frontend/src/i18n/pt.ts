@@ -217,6 +217,7 @@ export const pt: Translations = {
     apiLabel: 'API',
     frontendLabel: 'Frontend',
     lastDeployLabel: 'Último Deploy',
+    lastCommitLabel: 'Último Commit',
     versionLabel: 'Versão',
     statusOnline: 'Online',
     statusOffline: 'Offline',

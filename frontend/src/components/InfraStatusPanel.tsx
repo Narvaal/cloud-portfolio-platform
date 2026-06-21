@@ -95,6 +95,26 @@ export function InfraStatusPanel() {
               {status ? i.relativeTime(minutesSince(status.lastDeploy)) : '–'}
             </span>
           </div>
+
+          {(status?.lastCommit || !status) && (
+            <div>
+              <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
+                {i.lastCommitLabel}
+              </p>
+              {status?.lastCommit ? (
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                  <span className="shrink-0 font-mono text-[10px] text-accent-500 dark:text-accent-400">
+                    {status.lastCommit.sha.slice(0, 7)}
+                  </span>
+                  <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                    {status.lastCommit.message}
+                  </span>
+                </div>
+              ) : (
+                <span className="font-mono text-xs text-zinc-400 dark:text-zinc-600">–</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

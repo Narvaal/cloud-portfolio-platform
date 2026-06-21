@@ -216,6 +216,7 @@ export const en: Translations = {
     apiLabel: 'API',
     frontendLabel: 'Frontend',
     lastDeployLabel: 'Last Deploy',
+    lastCommitLabel: 'Last Commit',
     versionLabel: 'Version',
     statusOnline: 'Online',
     statusOffline: 'Offline',
