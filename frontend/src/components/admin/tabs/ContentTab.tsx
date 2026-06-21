@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { profile } from '../../../data/profile'
 
 type Section = 'projects' | 'experience' | 'about' | 'certifications'
 
@@ -57,6 +58,44 @@ function AboutEditor() {
   )
 }
 
+function AvailabilityToggle() {
+  return (
+    <div className="mb-8 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Open to Work</p>
+          <p className="mt-0.5 text-xs text-zinc-500">Controls the badge shown in the Hero section.</p>
+        </div>
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+          read-only — no backend yet
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          disabled
+          aria-pressed={profile.openToWork}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed items-center rounded-full transition-colors ${
+            profile.openToWork ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'
+          }`}
+        >
+          <span
+            className={`inline-block size-4 rounded-full bg-white shadow transition-transform ${
+              profile.openToWork ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+        <span className={`text-sm font-medium ${profile.openToWork ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500'}`}>
+          {profile.openToWork ? 'Visible — Open to Work badge is showing' : 'Hidden — badge is not showing'}
+        </span>
+      </div>
+      <p className="mt-3 text-xs text-zinc-400">
+        To change: edit <code className="font-mono">src/data/profile.ts → openToWork</code>. Once the backend is live, this toggle will call <code className="font-mono">PUT /admin/availability</code>.
+      </p>
+    </div>
+  )
+}
+
 export function ContentTab() {
   const [active, setActive] = useState<Section>('about')
 
@@ -66,6 +105,8 @@ export function ContentTab() {
       <p className="mb-6 text-sm text-zinc-500">
         Edit site content. Changes will update the live site instantly once connected to the API.
       </p>
+
+      <AvailabilityToggle />
 
       {/* Section tabs */}
       <div className="mb-6 flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-800/50">

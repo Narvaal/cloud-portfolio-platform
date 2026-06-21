@@ -3,6 +3,8 @@ import type { SocialIcon } from '../types'
 /** Static, non-translatable profile data. Translatable content lives in src/i18n/. */
 export const profile = {
   name: 'Alessandro Bezerra da Silva',
+  /** Controls the "Open to Work" badge in the Hero. Override via admin panel when backend exists. */
+  openToWork: true,
   email: 'contact@alessandro-bezerra.me',
   socials: [
     {

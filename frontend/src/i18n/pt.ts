@@ -21,6 +21,7 @@ export const pt: Translations = {
     scroll: 'rolar',
     resumeUrl: '/resume/pt/Alessandro_Bezerra_Java_Backend_Engineer.pdf',
     location: 'Brasil · Remoto',
+    openToWork: 'Disponível para Oportunidades',
   },
 
   about: {

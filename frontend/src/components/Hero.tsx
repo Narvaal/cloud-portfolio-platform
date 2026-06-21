@@ -148,6 +148,20 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
+            {profile.openToWork && (
+              <div className="mb-4">
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 dark:border-emerald-800/60 dark:bg-emerald-950/40">
+                  <span className="relative flex size-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-emerald-400" />
+                  </span>
+                  <span className="font-mono text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    {t.hero.openToWork}
+                  </span>
+                </span>
+              </div>
+            )}
+
             <div className="mb-4 h-5">
               <p className="font-mono text-sm font-medium text-accent-500">
                 <ScrambleText text={greetings[greetingIdx]} onSettled={handleSettled} />

@@ -11,6 +11,7 @@ export interface Translations {
     scroll: string
     resumeUrl: string
     location: string
+    openToWork: string
   }
   about: {
     eyebrow: string

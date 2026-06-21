@@ -20,6 +20,7 @@ export const en: Translations = {
     scroll: 'scroll',
     resumeUrl: '/resume/en/Alessandro_Bezerra_Java_Backend_Engineer.pdf',
     location: 'Brazil · Remote',
+    openToWork: 'Open to Work',
   },
 
   about: {

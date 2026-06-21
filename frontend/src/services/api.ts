@@ -55,6 +55,8 @@ export interface InfraStatus {
   /** ISO 8601 timestamp of the last deploy, written by GitHub Actions via SSM. */
   lastDeploy: string
   version: string
+  /** Controlled via admin panel. When absent, falls back to profile.openToWork. */
+  openToWork?: boolean
 }
 
 /** Phase 6 — reads API health, frontend health, last deploy time and version from the backend. */
