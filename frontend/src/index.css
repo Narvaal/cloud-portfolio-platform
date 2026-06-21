@@ -46,12 +46,12 @@
     background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
     background-size: 28px 28px;
     -webkit-mask-image:
-      radial-gradient(ellipse 30% 55% at 0% 50%, black, transparent),
-      radial-gradient(ellipse 30% 55% at 100% 50%, black, transparent);
+      radial-gradient(ellipse 24% 44% at 0% 50%, black, transparent),
+      radial-gradient(ellipse 24% 44% at 100% 50%, black, transparent);
     -webkit-mask-composite: source-over;
     mask-image:
-      radial-gradient(ellipse 30% 55% at 0% 50%, black, transparent),
-      radial-gradient(ellipse 30% 55% at 100% 50%, black, transparent);
+      radial-gradient(ellipse 24% 44% at 0% 50%, black, transparent),
+      radial-gradient(ellipse 24% 44% at 100% 50%, black, transparent);
     mask-composite: add;
   }
   .dark .dot-grid { --dot-color: rgba(255, 255, 255, 0.1); }
