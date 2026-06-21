@@ -40,6 +40,15 @@
   .animate-orb-1 { animation: orb-drift-1 28s ease-in-out infinite; }
   .animate-orb-2 { animation: orb-drift-2 34s ease-in-out infinite; }
   .animate-orb-3 { animation: orb-drift-3 22s ease-in-out infinite; }
+
+  .dot-grid {
+    --dot-color: rgba(0, 0, 0, 0.18);
+    background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: radial-gradient(ellipse at center, transparent 30%, black 70%);
+    mask-image: radial-gradient(ellipse at center, transparent 30%, black 70%);
+  }
+  .dark .dot-grid { --dot-color: rgba(255, 255, 255, 0.1); }
 }
 
 /* Mouse-follow radial glow — updated via --mouse-x / --mouse-y CSS vars */

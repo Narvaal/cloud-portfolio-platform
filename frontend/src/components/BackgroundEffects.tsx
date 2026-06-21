@@ -12,6 +12,9 @@ export function BackgroundEffects() {
 
   return (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      {/* Dot grid — fades toward edges */}
+      <div className="dot-grid absolute inset-0" />
+
       {/* Orb 1 — top right, cyan */}
       <div className="animate-orb-1 absolute -right-48 -top-48 h-[700px] w-[700px] rounded-full bg-accent-400/10 blur-3xl dark:bg-accent-400/[0.06]" />
 
