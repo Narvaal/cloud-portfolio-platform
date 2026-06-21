@@ -6,10 +6,12 @@ import { ProjectsSection } from './components/ProjectsSection'
 import { CertificationsSection } from './components/CertificationsSection'
 import { ContactSection } from './components/ContactSection'
 import { Footer } from './components/Footer'
+import { BackgroundEffects } from './components/BackgroundEffects'
 
 export function Portfolio() {
   return (
     <>
+      <BackgroundEffects />
       <Navbar />
       <main>
         <Hero />
