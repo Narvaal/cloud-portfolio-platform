@@ -13,7 +13,7 @@ export function Navbar() {
   const { lang, t, setLang } = useLang()
   const [open, setOpen] = useState(false)
   const ids = t.nav.map((item) => item.id)
-  const [activeId, notifyNavClick] = useScrollSpy(ids, 80)
+  const [activeId, notifyNavClick] = useScrollSpy(ids, 250)
 
   function handleLangToggle() {
     setLang((lang === 'en' ? 'pt' : 'en') as Lang)
