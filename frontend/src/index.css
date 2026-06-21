@@ -72,18 +72,17 @@ html[data-vt="theme"]::view-transition-new(root) {
   animation: vt-reveal 420ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* View Transitions — language toggle: vertical slot slide */
-@keyframes vt-blur-out {
-  to { opacity: 0; }
-}
-@keyframes vt-blur-in {
+/* View Transitions — language toggle: old stays, new fades in on top */
+@keyframes vt-fade-in {
   from { opacity: 0; }
 }
 html[data-vt="lang"]::view-transition-old(root) {
-  animation: vt-blur-out 120ms ease-in forwards;
+  animation: none;
+  z-index: 0;
 }
 html[data-vt="lang"]::view-transition-new(root) {
-  animation: vt-blur-in 180ms ease-out forwards;
+  animation: vt-fade-in 200ms ease-out forwards;
+  z-index: 1;
 }
 
 @layer base {
