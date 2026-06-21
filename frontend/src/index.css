@@ -73,17 +73,17 @@ html[data-vt="theme"]::view-transition-new(root) {
 }
 
 /* View Transitions — language toggle: vertical slot slide */
-@keyframes vt-slide-out {
-  to { transform: translateX(-40px); opacity: 0; }
+@keyframes vt-blur-out {
+  to { opacity: 0; filter: blur(6px); transform: scale(0.98); }
 }
-@keyframes vt-slide-in {
-  from { transform: translateX(40px); opacity: 0; }
+@keyframes vt-blur-in {
+  from { opacity: 0; filter: blur(6px); transform: scale(0.98); }
 }
 html[data-vt="lang"]::view-transition-old(root) {
-  animation: vt-slide-out 760ms ease-in forwards;
+  animation: vt-blur-out 200ms ease-in forwards;
 }
 html[data-vt="lang"]::view-transition-new(root) {
-  animation: vt-slide-in 960ms ease-out forwards;
+  animation: vt-blur-in 300ms ease-out forwards;
 }
 
 @layer base {
