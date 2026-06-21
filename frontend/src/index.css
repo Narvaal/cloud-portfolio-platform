@@ -80,10 +80,10 @@ html[data-vt="theme"]::view-transition-new(root) {
   from { transform: translateX(40px); opacity: 0; }
 }
 html[data-vt="lang"]::view-transition-old(root) {
-  animation: vt-slide-out 220ms ease-in forwards;
+  animation: vt-slide-out 380ms ease-in forwards;
 }
 html[data-vt="lang"]::view-transition-new(root) {
-  animation: vt-slide-in 280ms ease-out forwards;
+  animation: vt-slide-in 480ms ease-out forwards;
 }
 
 @layer base {
