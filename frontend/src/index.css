@@ -65,7 +65,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    scroll-padding-top: 5rem; /* offset for sticky navbar when anchoring */
+    scroll-padding-top: 4rem; /* navbar height — keeps anchor targets below the sticky bar */
   }
 
   body {

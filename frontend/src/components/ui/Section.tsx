@@ -20,7 +20,7 @@ export function Section({
   className = '',
 }: SectionProps) {
   return (
-    <section id={id} className={`scroll-mt-20 py-20 sm:py-28 ${className}`}>
+    <section id={id} className={`py-20 sm:py-28 ${className}`}>
       <Container>
         <motion.div
           initial={{ opacity: 0, y: 16 }}

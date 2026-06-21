@@ -1,37 +1,29 @@
 import { useEffect, useState } from 'react'
 
-/**
- * Tracks which section is currently in view so the navbar can highlight the
- * active link. Observes the elements matching the given ids.
- */
 export function useScrollSpy(ids: string[], offset = 0): string {
   const [activeId, setActiveId] = useState<string>(ids[0] ?? '')
+  const joinedIds = ids.join(',')
 
   useEffect(() => {
-    const elements = ids
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el !== null)
+    const currentIds = joinedIds ? joinedIds.split(',') : []
 
-    if (elements.length === 0) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
-        if (visible[0]) {
-          setActiveId(visible[0].target.id)
+    function update() {
+      const threshold = window.scrollY + offset
+      let current = currentIds[0] ?? ''
+      for (const id of currentIds) {
+        const el = document.getElementById(id)
+        if (el) {
+          const absoluteTop = el.getBoundingClientRect().top + window.scrollY
+          if (absoluteTop <= threshold) current = id
         }
-      },
-      {
-        rootMargin: `-${offset}px 0px -55% 0px`,
-        threshold: [0.1, 0.25, 0.5],
-      },
-    )
+      }
+      setActiveId(current)
+    }
 
-    elements.forEach((el) => observer.observe(el))
-    return () => observer.disconnect()
-  }, [ids, offset])
+    window.addEventListener('scroll', update, { passive: true })
+    update()
+    return () => window.removeEventListener('scroll', update)
+  }, [joinedIds, offset])
 
   return activeId
 }
