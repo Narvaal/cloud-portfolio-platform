@@ -210,4 +210,21 @@ export const pt: Translations = {
     noActivity: 'Nenhuma atividade recente',
     starsLabel: 'estrelas',
   },
+
+  infra: {
+    title: 'Status da Infra',
+    apiLabel: 'API',
+    frontendLabel: 'Frontend',
+    lastDeployLabel: 'Último Deploy',
+    versionLabel: 'Versão',
+    statusOnline: 'Online',
+    statusOffline: 'Offline',
+    statusDegraded: 'Degradado',
+    relativeTime: (mins) => {
+      if (mins < 1) return 'agora mesmo'
+      if (mins < 60) return `há ${mins}min`
+      if (mins < 1440) return `há ${Math.floor(mins / 60)}h`
+      return `há ${Math.floor(mins / 1440)}d`
+    },
+  },
 }

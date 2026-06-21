@@ -65,6 +65,18 @@ export interface Translations {
     noActivity: string
     starsLabel: string
   }
+  infra: {
+    title: string
+    apiLabel: string
+    frontendLabel: string
+    lastDeployLabel: string
+    versionLabel: string
+    statusOnline: string
+    statusOffline: string
+    statusDegraded: string
+    /** Formats a duration in minutes into a human-readable relative time string. */
+    relativeTime: (mins: number) => string
+  }
   nav: NavItem[]
   langSwitcher: {
     ariaLabel: string

@@ -49,7 +49,7 @@ Frontend connects to the backend via `VITE_API_BASE_URL` (API Gateway URL). When
 
 **Visitor Counter** — `POST /visitors` increments a DynamoDB atomic counter per country (country extracted from `CloudFront-Viewer-Country` header, injected by CloudFront automatically). `GET /visitors` returns total + breakdown.
 
-**Infrastructure Status** — `GET /status` reads `/portfolio/version` and `/portfolio/last-deploy` from SSM (updated by GitHub Actions on each deploy) and returns API health + frontend health.
+**Infrastructure Status** — `GET /status` reads `/portfolio/version` and `/portfolio/last-deploy` from SSM (updated by GitHub Actions on each deploy) and returns API health + frontend health. Expected response shape: `{ api: 'online'|'offline'|'degraded', frontend: 'online'|'offline'|'degraded', lastDeploy: string (ISO 8601), version: string }`. Frontend component `InfraStatusPanel` (`src/components/InfraStatusPanel.tsx`) and hook `useInfraStatus` (`src/hooks/useInfraStatus.ts`) are already implemented — polls every 60s, shows placeholder dashes when backend is unavailable. The panel sits below `GitHubPanel` in the Hero right column.
 
 **GitHub Activity (server-side cache)** — EventBridge cron (1h) runs `syncGithubActivity` Lambda, which fetches from the GitHub API using a PAT stored in `/portfolio/github-token` (SSM SecureString) and writes results to a DynamoDB `github_cache` table with TTL. `GET /github/activity` serves the cached data. Currently, the frontend fetches the GitHub API directly with a client-side localStorage cache as a temporary workaround.
 

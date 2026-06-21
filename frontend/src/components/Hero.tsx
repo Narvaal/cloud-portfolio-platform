@@ -5,6 +5,7 @@ import { Button } from './ui/Button'
 import { Container } from './ui/Container'
 import { GitHubIcon, LinkedInIcon } from './ui/BrandIcons'
 import { GitHubPanel } from './GitHubPanel'
+import { InfraStatusPanel } from './InfraStatusPanel'
 import { profile } from '../data/profile'
 import { useLang } from '../i18n'
 import { useVisitorCount } from '../hooks/useVisitorCount'
@@ -210,8 +211,11 @@ export function Hero() {
             </div>
           </motion.div>
 
-          {/* GitHub Activity Panel */}
-          <GitHubPanel />
+          {/* Right column — stacked panels */}
+          <div className="flex flex-col gap-4">
+            <GitHubPanel />
+            <InfraStatusPanel />
+          </div>
 
         </div>
       </Container>

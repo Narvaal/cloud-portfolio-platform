@@ -209,4 +209,21 @@ export const en: Translations = {
     noActivity: 'No recent activity',
     starsLabel: 'stars',
   },
+
+  infra: {
+    title: 'Infra Status',
+    apiLabel: 'API',
+    frontendLabel: 'Frontend',
+    lastDeployLabel: 'Last Deploy',
+    versionLabel: 'Version',
+    statusOnline: 'Online',
+    statusOffline: 'Offline',
+    statusDegraded: 'Degraded',
+    relativeTime: (mins) => {
+      if (mins < 1) return 'just now'
+      if (mins < 60) return `${mins}m ago`
+      if (mins < 1440) return `${Math.floor(mins / 60)}h ago`
+      return `${Math.floor(mins / 1440)}d ago`
+    },
+  },
 }

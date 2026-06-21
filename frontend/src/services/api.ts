@@ -49,6 +49,26 @@ export async function getVisitorCount(): Promise<number | null> {
   }
 }
 
+export interface InfraStatus {
+  api: 'online' | 'offline' | 'degraded'
+  frontend: 'online' | 'offline' | 'degraded'
+  /** ISO 8601 timestamp of the last deploy, written by GitHub Actions via SSM. */
+  lastDeploy: string
+  version: string
+}
+
+/** Phase 6 — reads API health, frontend health, last deploy time and version from the backend. */
+export async function getInfraStatus(): Promise<InfraStatus | null> {
+  if (!API_BASE) return null
+  try {
+    const res = await fetch(`${API_BASE}/status`)
+    if (!res.ok) return null
+    return res.json() as Promise<InfraStatus>
+  } catch {
+    return null
+  }
+}
+
 /** Phase 3 — sends the contact form to the backend (SES). */
 export async function sendContactMessage(
   payload: ContactPayload,
