@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { flushSync } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, Moon, Sun, X } from 'lucide-react'
 import { Container } from './ui/Container'
@@ -9,28 +8,34 @@ import { useScrollSpy } from '../hooks/useScrollSpy'
 import { useTheme } from '../hooks/useTheme'
 import type { Lang } from '../i18n/types'
 
+function LangSlot({ lang }: { lang: string }) {
+  return (
+    <span
+      className="relative inline-block overflow-hidden"
+      style={{ height: '1.15em', width: '2ch', verticalAlign: 'text-bottom' }}
+    >
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={lang}
+          initial={{ y: '110%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '-110%' }}
+          transition={{ type: 'spring', stiffness: 350, damping: 30, mass: 0.8 }}
+          className="block text-center"
+        >
+          {lang.toUpperCase()}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  )
+}
+
 export function Navbar() {
   const { theme, toggle } = useTheme()
   const { lang, t, setLang } = useLang()
   const [open, setOpen] = useState(false)
   const ids = t.nav.map((item) => item.id)
   const [activeId, notifyNavClick] = useScrollSpy(ids, 250)
-
-  function handleLangToggle(e: React.MouseEvent<HTMLButtonElement>) {
-    const r = e.currentTarget.getBoundingClientRect()
-    const next = (lang === 'en' ? 'pt' : 'en') as Lang
-
-    if (!('startViewTransition' in document)) {
-      setLang(next)
-      return
-    }
-
-    document.documentElement.style.setProperty('--vt-x', `${r.left + r.width / 2}px`)
-    document.documentElement.style.setProperty('--vt-y', `${r.top + r.height / 2}px`)
-    ;(document as Document & { startViewTransition(cb: () => void): void }).startViewTransition(
-      () => { flushSync(() => setLang(next)) },
-    )
-  }
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-zinc-100/80 bg-white/80 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/80">
@@ -67,29 +72,11 @@ export function Navbar() {
           <div className="flex items-center gap-1">
             {/* Language switcher */}
             <button
-              onClick={handleLangToggle}
+              onClick={() => setLang((lang === 'en' ? 'pt' : 'en') as Lang)}
               aria-label={t.langSwitcher.ariaLabel}
-              className="flex items-center gap-0.5 rounded-lg px-2 py-2 font-mono text-xs font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded-lg px-2 py-2 font-mono text-xs font-medium text-accent-600 transition-colors hover:bg-zinc-100 dark:text-accent-400 dark:hover:bg-zinc-800"
             >
-              <span
-                className={
-                  lang === 'en'
-                    ? 'text-accent-600 dark:text-accent-400'
-                    : 'text-zinc-400 dark:text-zinc-600'
-                }
-              >
-                EN
-              </span>
-              <span className="mx-0.5 text-zinc-300 dark:text-zinc-700">/</span>
-              <span
-                className={
-                  lang === 'pt'
-                    ? 'text-accent-600 dark:text-accent-400'
-                    : 'text-zinc-400 dark:text-zinc-600'
-                }
-              >
-                PT
-              </span>
+              <LangSlot lang={lang} />
             </button>
 
             {/* Theme toggle */}
