@@ -74,10 +74,10 @@ html[data-vt="theme"]::view-transition-new(root) {
 
 /* View Transitions — language toggle: vertical slot slide */
 @keyframes vt-slide-out {
-  to { transform: translateY(-28px); opacity: 0; }
+  to { transform: translateX(-40px); opacity: 0; }
 }
 @keyframes vt-slide-in {
-  from { transform: translateY(28px); opacity: 0; }
+  from { transform: translateX(40px); opacity: 0; }
 }
 html[data-vt="lang"]::view-transition-old(root) {
   animation: vt-slide-out 220ms ease-in forwards;
