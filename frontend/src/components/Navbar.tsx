@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, Moon, Sun, X } from 'lucide-react'
 import { Container } from './ui/Container'
@@ -15,8 +16,20 @@ export function Navbar() {
   const ids = t.nav.map((item) => item.id)
   const [activeId, notifyNavClick] = useScrollSpy(ids, 250)
 
-  function handleLangToggle() {
-    setLang((lang === 'en' ? 'pt' : 'en') as Lang)
+  function handleLangToggle(e: React.MouseEvent<HTMLButtonElement>) {
+    const r = e.currentTarget.getBoundingClientRect()
+    const next = (lang === 'en' ? 'pt' : 'en') as Lang
+
+    if (!('startViewTransition' in document)) {
+      setLang(next)
+      return
+    }
+
+    document.documentElement.style.setProperty('--vt-x', `${r.left + r.width / 2}px`)
+    document.documentElement.style.setProperty('--vt-y', `${r.top + r.height / 2}px`)
+    ;(document as Document & { startViewTransition(cb: () => void): void }).startViewTransition(
+      () => { flushSync(() => setLang(next)) },
+    )
   }
 
   return (
