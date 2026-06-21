@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Server } from 'lucide-react'
+import { AWSIcon } from './ui/BrandIcons'
 import { useInfraStatus } from '../hooks/useInfraStatus'
 import { useLang } from '../i18n'
 import type { InfraStatus } from '../services/api'
@@ -62,7 +62,7 @@ export function InfraStatusPanel() {
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Server className="size-4 text-zinc-500 dark:text-zinc-400" />
+            <AWSIcon className="size-4 text-zinc-500 dark:text-zinc-400" />
             <span className="font-mono text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
               {i.title}
             </span>
