@@ -57,7 +57,7 @@
 .dark .mouse-glow {
   background: radial-gradient(
     1400px circle at var(--mouse-x) var(--mouse-y),
-    rgba(6, 182, 212, 0.056),
+    rgba(6, 182, 212, 0.12),
     transparent 65%
   );
 }
