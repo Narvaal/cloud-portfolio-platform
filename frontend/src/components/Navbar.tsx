@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, Moon, Sun, X } from 'lucide-react'
 import { Container } from './ui/Container'
@@ -72,7 +73,13 @@ export function Navbar() {
           <div className="flex items-center gap-1">
             {/* Language switcher */}
             <button
-              onClick={() => setLang((lang === 'en' ? 'pt' : 'en') as Lang)}
+              onClick={() => {
+                const next = (lang === 'en' ? 'pt' : 'en') as Lang
+                if (!('startViewTransition' in document)) { setLang(next); return }
+                document.documentElement.setAttribute('data-vt', 'lang')
+                ;(document as Document & { startViewTransition(cb: () => void): void })
+                  .startViewTransition(() => { flushSync(() => setLang(next)) })
+              }}
               aria-label={t.langSwitcher.ariaLabel}
               className="rounded-lg px-2 py-2 font-mono text-xs font-medium text-accent-600 transition-colors hover:bg-zinc-100 dark:text-accent-400 dark:hover:bg-zinc-800"
             >

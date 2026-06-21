@@ -28,6 +28,7 @@ export function useTheme() {
         return
       }
 
+      document.documentElement.setAttribute('data-vt', 'theme')
       document.documentElement.style.setProperty('--vt-x', `${origin.x}px`)
       document.documentElement.style.setProperty('--vt-y', `${origin.y}px`)
       ;(document as Document & { startViewTransition(cb: () => void): void }).startViewTransition(
