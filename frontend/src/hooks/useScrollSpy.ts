@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-export function useScrollSpy(ids: string[], offset = 0): string {
+export function useScrollSpy(ids: string[], offset = 0): [string, (id: string) => void] {
   const [activeId, setActiveId] = useState<string>(ids[0] ?? '')
+  const suppressUntil = useRef(0)
   const joinedIds = ids.join(',')
 
   useEffect(() => {
     const currentIds = joinedIds ? joinedIds.split(',') : []
 
     function update() {
-      // When scrolled to the bottom, the last section wins even if its top
-      // hasn't crossed the threshold (page can't scroll far enough).
+      if (Date.now() < suppressUntil.current) return
+
       const atBottom =
         window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4
       if (atBottom) {
@@ -34,5 +35,10 @@ export function useScrollSpy(ids: string[], offset = 0): string {
     return () => window.removeEventListener('scroll', update)
   }, [joinedIds, offset])
 
-  return activeId
+  const notifyClick = useCallback((id: string) => {
+    setActiveId(id)
+    suppressUntil.current = Date.now() + 1200
+  }, [])
+
+  return [activeId, notifyClick]
 }

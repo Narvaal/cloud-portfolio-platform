@@ -13,7 +13,7 @@ export function Navbar() {
   const { lang, t, setLang } = useLang()
   const [open, setOpen] = useState(false)
   const ids = t.nav.map((item) => item.id)
-  const activeId = useScrollSpy(ids, 80)
+  const [activeId, notifyNavClick] = useScrollSpy(ids, 80)
 
   function handleLangToggle() {
     setLang((lang === 'en' ? 'pt' : 'en') as Lang)
@@ -39,6 +39,7 @@ export function Navbar() {
               <a
                 key={item.id}
                 href={`#${item.id}`}
+                onClick={() => notifyNavClick(item.id)}
                 className={`text-sm transition-colors ${
                   activeId === item.id
                     ? 'text-accent-600 dark:text-accent-400'
@@ -117,7 +118,7 @@ export function Navbar() {
                   <a
                     key={item.id}
                     href={`#${item.id}`}
-                    onClick={() => setOpen(false)}
+                    onClick={() => { notifyNavClick(item.id); setOpen(false) }}
                     className={`rounded-lg px-3 py-2 text-sm transition-colors ${
                       activeId === item.id
                         ? 'bg-accent-50 text-accent-600 dark:bg-accent-500/10 dark:text-accent-400'
