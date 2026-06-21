@@ -74,10 +74,10 @@ html[data-vt="theme"]::view-transition-new(root) {
 
 /* View Transitions — language toggle: vertical slot slide */
 @keyframes vt-blur-out {
-  to { opacity: 0; filter: blur(16px); }
+  to { opacity: 0; }
 }
 @keyframes vt-blur-in {
-  from { opacity: 0; filter: blur(16px); }
+  from { opacity: 0; }
 }
 html[data-vt="lang"]::view-transition-old(root) {
   animation: vt-blur-out 120ms ease-in forwards;
