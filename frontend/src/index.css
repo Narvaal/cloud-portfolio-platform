@@ -49,15 +49,15 @@
 }
 .mouse-glow {
   background: radial-gradient(
-    700px circle at var(--mouse-x) var(--mouse-y),
-    rgba(6, 182, 212, 0.045),
+    1400px circle at var(--mouse-x) var(--mouse-y),
+    rgba(6, 182, 212, 0.032),
     transparent 65%
   );
 }
 .dark .mouse-glow {
   background: radial-gradient(
-    700px circle at var(--mouse-x) var(--mouse-y),
-    rgba(6, 182, 212, 0.08),
+    1400px circle at var(--mouse-x) var(--mouse-y),
+    rgba(6, 182, 212, 0.056),
     transparent 65%
   );
 }
