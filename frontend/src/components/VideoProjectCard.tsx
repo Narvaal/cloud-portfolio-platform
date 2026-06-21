@@ -105,20 +105,6 @@ export function VideoProjectCard({ project, tryItLabel, expandLabel, collapseLab
             <span className="text-xs italic text-zinc-400 dark:text-zinc-500">{project.year}</span>
           </div>
         </div>
-
-        {/* Expand / collapse hint */}
-        <div className="flex items-center justify-center gap-1.5 border-t border-zinc-100 py-2 dark:border-zinc-800">
-          <motion.span
-            animate={{ rotate: expanded ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-            className="text-zinc-400"
-          >
-            <ChevronDown className="size-3.5" />
-          </motion.span>
-          <span className="text-xs text-zinc-400">
-            {expanded ? collapseLabel : expandLabel}
-          </span>
-        </div>
       </div>
 
       {/* Expandable description */}
@@ -147,6 +133,24 @@ export function VideoProjectCard({ project, tryItLabel, expandLabel, collapseLab
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Expand / collapse hint — always at the bottom, after expandable content */}
+      <button
+        type="button"
+        onClick={toggle}
+        className="flex w-full cursor-pointer items-center justify-center gap-1.5 border-t border-zinc-100 py-2 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/40"
+      >
+        <motion.span
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="text-zinc-400"
+        >
+          <ChevronDown className="size-3.5" />
+        </motion.span>
+        <span className="text-xs text-zinc-400">
+          {expanded ? collapseLabel : expandLabel}
+        </span>
+      </button>
     </div>
   )
 }

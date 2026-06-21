@@ -3,11 +3,9 @@ import { Container } from './ui/Container'
 import { GitHubIcon, LinkedInIcon } from './ui/BrandIcons'
 import { profile } from '../data/profile'
 import { useLang } from '../i18n'
-import { useVisitorCount } from '../hooks/useVisitorCount'
 
 export function Footer() {
   const { t } = useLang()
-  const { count } = useVisitorCount()
 
   return (
     <footer className="border-t border-zinc-100 dark:border-zinc-800">
@@ -57,11 +55,6 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} {profile.name.split(' ').slice(0, 2).join(' ')} · {t.footer.built}
           </p>
-          {count !== null && (
-            <p className="font-mono">
-              {count.toLocaleString()} {t.footer.visitorsLabel}
-            </p>
-          )}
         </div>
       </Container>
     </footer>

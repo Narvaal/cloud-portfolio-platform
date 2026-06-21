@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDown, Download, Mail } from 'lucide-react'
 import { Button } from './ui/Button'
 import { Container } from './ui/Container'
@@ -7,7 +7,53 @@ import { GitHubIcon, LinkedInIcon } from './ui/BrandIcons'
 import { GitHubPanel } from './GitHubPanel'
 import { profile } from '../data/profile'
 import { useLang } from '../i18n'
+import { useVisitorCount } from '../hooks/useVisitorCount'
 import type { SocialIcon } from '../types'
+
+// --- Slot-machine digit animation ---
+
+function SlotDigit({ char }: { char: string }) {
+  if (!/\d/.test(char)) return <span>{char}</span>
+  return (
+    <span
+      className="relative inline-block overflow-hidden"
+      style={{ height: '1.1em', verticalAlign: 'text-bottom' }}
+    >
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={char}
+          initial={{ y: '110%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '-110%' }}
+          transition={{ type: 'spring', stiffness: 350, damping: 30, mass: 0.8 }}
+          className="block"
+        >
+          {char}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  )
+}
+
+function SlotNumber({ count }: { count: number }) {
+  const formatted = count.toLocaleString('en-US')
+  const chars = formatted.split('')
+  const totalDigits = chars.filter((c) => /\d/.test(c)).length
+  let digitIdx = 0
+  return (
+    <span className="inline-flex">
+      {chars.map((char, i) => {
+        if (/\d/.test(char)) {
+          const key = totalDigits - 1 - digitIdx++
+          return <SlotDigit key={key} char={char} />
+        }
+        return <span key={`sep-${i}`}>{char}</span>
+      })}
+    </span>
+  )
+}
+
+// ------------------------------------
 
 type IconComponent = React.ElementType<{ className?: string }>
 
@@ -79,6 +125,7 @@ function ScrambleText({ text, onSettled }: { text: string; onSettled?: () => voi
 
 export function Hero() {
   const { t } = useLang()
+  const { count } = useVisitorCount()
   const [greetingIdx, setGreetingIdx] = useState(0)
   const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -131,7 +178,7 @@ export function Hero() {
               </Button>
             </div>
 
-            <div className="mt-10 flex items-center gap-4">
+            <div className="mt-10 flex flex-wrap items-center gap-4">
               {profile.socials.map((social) => {
                 const Icon = iconMap[social.icon]
                 return (
@@ -150,6 +197,16 @@ export function Hero() {
               <span className="ml-1 text-sm text-zinc-400 dark:text-zinc-600">
                 {t.hero.location}
               </span>
+              {count !== null && (
+                <>
+                  <span className="text-zinc-300 dark:text-zinc-700">·</span>
+                  <span className="flex items-center gap-1.5 font-mono text-xs text-zinc-400 dark:text-zinc-600">
+                    <span className="size-1.5 rounded-full bg-emerald-400" />
+                    <SlotNumber count={count} />
+                    <span>{t.footer.visitorsLabel}</span>
+                  </span>
+                </>
+              )}
             </div>
           </motion.div>
 

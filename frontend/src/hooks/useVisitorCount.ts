@@ -1,34 +1,32 @@
 import { useEffect, useState } from 'react'
-import { fetchVisitorCount } from '../services/api'
+import { fetchVisitorCount, getVisitorCount } from '../services/api'
 
-interface VisitorCountState {
-  count: number | null
-  loading: boolean
-}
+const POLL_MS = 30_000
 
 /**
- * Visitor counter (Phase 4). Returns `count: null` until the backend exists,
- * which the UI renders as a placeholder.
+ * Phase 4 — registers the visit on mount (POST) then polls GET every 30s.
+ * Returns null until the backend exists (VITE_API_BASE_URL unset).
  */
-export function useVisitorCount(): VisitorCountState {
-  const [state, setState] = useState<VisitorCountState>({
-    count: null,
-    loading: true,
-  })
+export function useVisitorCount(): { count: number | null } {
+  const [count, setCount] = useState<number | null>(null)
 
   useEffect(() => {
     let active = true
-    fetchVisitorCount()
-      .then((count) => {
-        if (active) setState({ count, loading: false })
-      })
-      .catch(() => {
-        if (active) setState({ count: null, loading: false })
-      })
+
+    fetchVisitorCount().then((n) => {
+      if (active && n !== null) setCount(n)
+    })
+
+    const id = setInterval(async () => {
+      const n = await getVisitorCount()
+      if (active && n !== null) setCount(n)
+    }, POLL_MS)
+
     return () => {
       active = false
+      clearInterval(id)
     }
   }, [])
 
-  return state
+  return { count }
 }

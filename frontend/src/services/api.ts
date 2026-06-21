@@ -25,11 +25,24 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
-/** Phase 4 — increments and returns the visitor count. */
+/** Phase 4 — registers the visit (increments) and returns the current count. */
 export async function fetchVisitorCount(): Promise<number | null> {
   if (!API_BASE) return null
   try {
     const data = await postJson<{ count: number }>('/visitors', {})
+    return data.count
+  } catch {
+    return null
+  }
+}
+
+/** Phase 4 — reads the current visitor count without incrementing (used for polling). */
+export async function getVisitorCount(): Promise<number | null> {
+  if (!API_BASE) return null
+  try {
+    const res = await fetch(`${API_BASE}/visitors`)
+    if (!res.ok) return null
+    const data = await res.json() as { count: number }
     return data.count
   } catch {
     return null
