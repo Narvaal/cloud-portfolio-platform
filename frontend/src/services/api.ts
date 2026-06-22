@@ -100,6 +100,13 @@ export interface ContactMessage {
   country?: string
   ip?: string
   receivedAt: string
+  read?: boolean
+}
+
+/** Admin — marks a contact message as read. */
+export async function patchContact(id: string): Promise<void> {
+  if (!API_BASE) return
+  await fetch(`${API_BASE}/contacts/${encodeURIComponent(id)}`, { method: 'PATCH' })
 }
 
 /** Admin — lists all contact form submissions from DynamoDB, newest first. */

@@ -5,7 +5,7 @@ resource "aws_apigatewayv2_api" "portfolio" {
 
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["GET", "POST", "OPTIONS"]
+    allow_methods = ["GET", "POST", "PATCH", "OPTIONS"]
     allow_headers = ["Content-Type", "Authorization"]
     max_age       = 300
   }
@@ -91,7 +91,7 @@ resource "aws_lambda_permission" "api_gw_visitors" {
   source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
 }
 
-# ── Contacts (admin read) ─────────────────────────────────────────────────────
+# ── Contacts (admin read + mark-as-read) ─────────────────────────────────────
 
 resource "aws_apigatewayv2_integration" "contacts_get" {
   api_id                 = aws_apigatewayv2_api.portfolio.id
@@ -110,6 +110,27 @@ resource "aws_lambda_permission" "api_gw_contacts_get" {
   statement_id  = "AllowAPIGatewayInvokeContactsGet"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.contacts_get.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
+}
+
+resource "aws_apigatewayv2_integration" "contacts_patch" {
+  api_id                 = aws_apigatewayv2_api.portfolio.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.contacts_patch.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "contacts_patch" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "PATCH /contacts/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.contacts_patch.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_contacts_patch" {
+  statement_id  = "AllowAPIGatewayInvokeContactsPatch"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.contacts_patch.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
 }
