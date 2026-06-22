@@ -6,9 +6,6 @@ import type { InfraStatus } from '../services/api'
 
 type ServiceStatus = InfraStatus['api'] | undefined
 
-function minutesSince(iso: string): number {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
-}
 
 function StatusDot({ status }: { status: ServiceStatus }) {
   const color =
@@ -85,23 +82,12 @@ export function InfraStatusPanel() {
             statusText={statusText(status?.frontend)}
           />
 
-          <div className="border-t border-zinc-100 dark:border-zinc-800" />
-
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
-              {i.lastDeployLabel}
-            </span>
-            <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
-              {status ? i.relativeTime(minutesSince(status.lastDeploy)) : '–'}
-            </span>
-          </div>
-
           {status?.lastCommit && (
-            <div>
+            <div className="border-t border-zinc-100 pt-2.5 dark:border-zinc-800">
               <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
                 {i.lastCommitLabel}
               </p>
-              <div className="flex items-start gap-1.5 overflow-hidden">
+              <div className="flex items-center gap-1.5 overflow-hidden">
                 <span className="shrink-0 font-mono text-[10px] text-accent-500 dark:text-accent-400">
                   {status.lastCommit.sha.slice(0, 7)}
                 </span>
