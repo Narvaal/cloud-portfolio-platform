@@ -7,6 +7,15 @@ data "archive_file" "status_lambda" {
   }
 }
 
+data "archive_file" "visitors_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.build/visitors.zip"
+  source {
+    content  = file("${path.module}/../backend/functions/visitors/index.mjs")
+    filename = "index.mjs"
+  }
+}
+
 resource "aws_iam_role" "lambda_exec" {
   name = "${var.project_name}-lambda-exec-${var.environment}"
   tags = local.tags
@@ -40,6 +49,20 @@ resource "aws_iam_role_policy" "lambda_ssm_read" {
   })
 }
 
+resource "aws_iam_role_policy" "lambda_dynamodb" {
+  name = "${var.project_name}-lambda-dynamodb-${var.environment}"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+      Resource = aws_dynamodb_table.visitors.arn
+    }]
+  })
+}
+
 resource "aws_lambda_function" "status" {
   function_name    = "${var.project_name}-status-${var.environment}"
   filename         = data.archive_file.status_lambda.output_path
@@ -49,4 +72,21 @@ resource "aws_lambda_function" "status" {
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
   tags             = local.tags
+}
+
+resource "aws_lambda_function" "visitors" {
+  function_name    = "${var.project_name}-visitors-${var.environment}"
+  filename         = data.archive_file.visitors_lambda.output_path
+  source_code_hash = data.archive_file.visitors_lambda.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
+  role             = aws_iam_role.lambda_exec.arn
+  timeout          = 10
+  tags             = local.tags
+
+  environment {
+    variables = {
+      VISITORS_TABLE = aws_dynamodb_table.visitors.name
+    }
+  }
 }
