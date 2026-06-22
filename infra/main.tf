@@ -165,6 +165,51 @@ data "aws_iam_policy_document" "github_actions" {
     ]
     resources = [aws_cloudfront_distribution.frontend.arn]
   }
+
+  statement {
+    sid    = "SSMWriteDeployInfo"
+    effect = "Allow"
+    actions = [
+      "ssm:PutParameter",
+    ]
+    resources = [
+      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/*",
+    ]
+  }
+}
+
+# ── SSM parameters — written by GitHub Actions on each deploy ─────────────────
+
+resource "aws_ssm_parameter" "version" {
+  name  = "/portfolio/version"
+  type  = "String"
+  value = "initial"
+  tags  = local.tags
+  lifecycle { ignore_changes = [value] }
+}
+
+resource "aws_ssm_parameter" "last_deploy" {
+  name  = "/portfolio/last-deploy"
+  type  = "String"
+  value = "1970-01-01T00:00:00Z"
+  tags  = local.tags
+  lifecycle { ignore_changes = [value] }
+}
+
+resource "aws_ssm_parameter" "last_commit_sha" {
+  name  = "/portfolio/last-commit-sha"
+  type  = "String"
+  value = "initial"
+  tags  = local.tags
+  lifecycle { ignore_changes = [value] }
+}
+
+resource "aws_ssm_parameter" "last_commit_message" {
+  name  = "/portfolio/last-commit-message"
+  type  = "String"
+  value = "initial"
+  tags  = local.tags
+  lifecycle { ignore_changes = [value] }
 }
 
 resource "aws_iam_user_policy" "github_actions" {
