@@ -77,6 +77,34 @@ export async function getInfraStatus(): Promise<InfraStatus | null> {
   }
 }
 
+export interface ContactMessage {
+  id: string
+  name: string
+  email: string
+  message: string
+  referrer?: string
+  device?: string
+  timezone?: string
+  locale?: string
+  timeOnSite?: number
+  country?: string
+  ip?: string
+  receivedAt: string
+}
+
+/** Admin — lists all contact form submissions from DynamoDB, newest first. */
+export async function getContacts(): Promise<ContactMessage[]> {
+  if (!API_BASE) return []
+  try {
+    const res = await fetch(`${API_BASE}/contacts`)
+    if (!res.ok) return []
+    const data = (await res.json()) as { items: ContactMessage[] }
+    return data.items
+  } catch {
+    return []
+  }
+}
+
 /** Phase 3 — sends the contact form to the backend (SES). */
 export async function sendContactMessage(
   payload: ContactPayload,

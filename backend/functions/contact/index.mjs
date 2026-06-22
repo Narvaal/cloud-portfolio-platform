@@ -1,7 +1,10 @@
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
+import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb'
 
 const ses = new SESClient({})
+const dynamo = new DynamoDBClient({})
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL
+const CONTACTS_TABLE = process.env.CONTACTS_TABLE
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -167,6 +170,31 @@ export const handler = async (event) => {
         },
       },
     }))
+
+    if (CONTACTS_TABLE) {
+      try {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        await dynamo.send(new PutItemCommand({
+          TableName: CONTACTS_TABLE,
+          Item: {
+            id:         { S: id },
+            name:       { S: name },
+            email:      { S: email },
+            message:    { S: message },
+            referrer:   referrer             ? { S: referrer }              : { NULL: true },
+            device:     device               ? { S: device }                : { NULL: true },
+            timezone:   timezone             ? { S: timezone }              : { NULL: true },
+            locale:     locale               ? { S: locale }                : { NULL: true },
+            timeOnSite: timeOnSite != null   ? { N: String(timeOnSite) }   : { NULL: true },
+            country:    country              ? { S: country }               : { NULL: true },
+            ip:         ip                   ? { S: ip }                    : { NULL: true },
+            receivedAt: { S: new Date().toISOString() },
+          },
+        }))
+      } catch (dbErr) {
+        console.error('DynamoDB save failed:', dbErr)
+      }
+    }
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) }
   } catch (err) {

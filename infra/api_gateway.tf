@@ -90,3 +90,26 @@ resource "aws_lambda_permission" "api_gw_visitors" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
 }
+
+# ── Contacts (admin read) ─────────────────────────────────────────────────────
+
+resource "aws_apigatewayv2_integration" "contacts_get" {
+  api_id                 = aws_apigatewayv2_api.portfolio.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.contacts_get.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "contacts_get" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "GET /contacts"
+  target    = "integrations/${aws_apigatewayv2_integration.contacts_get.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_contacts_get" {
+  statement_id  = "AllowAPIGatewayInvokeContactsGet"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.contacts_get.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
+}

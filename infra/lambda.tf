@@ -55,11 +55,18 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
-      Resource = aws_dynamodb_table.visitors.arn
-    }]
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+        Resource = aws_dynamodb_table.visitors.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem", "dynamodb:Scan"]
+        Resource = aws_dynamodb_table.contacts.arn
+      },
+    ]
   })
 }
 
@@ -95,7 +102,34 @@ resource "aws_lambda_function" "contact" {
 
   environment {
     variables = {
-      CONTACT_EMAIL = var.contact_email
+      CONTACT_EMAIL  = var.contact_email
+      CONTACTS_TABLE = aws_dynamodb_table.contacts.name
+    }
+  }
+}
+
+data "archive_file" "contacts_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.build/contacts.zip"
+  source {
+    content  = file("${path.module}/../backend/functions/contacts/index.mjs")
+    filename = "index.mjs"
+  }
+}
+
+resource "aws_lambda_function" "contacts_get" {
+  function_name    = "${var.project_name}-contacts-get-${var.environment}"
+  filename         = data.archive_file.contacts_lambda.output_path
+  source_code_hash = data.archive_file.contacts_lambda.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
+  role             = aws_iam_role.lambda_exec.arn
+  timeout          = 10
+  tags             = local.tags
+
+  environment {
+    variables = {
+      CONTACTS_TABLE = aws_dynamodb_table.contacts.name
     }
   }
 }
