@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Globe, Mail, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Globe, Mail, Users } from 'lucide-react'
 import { getContacts, getVisitorStats, type ContactMessage, type VisitorStats } from '../../../services/api'
 
 const COUNTRY_INFO: Record<string, { name: string; flag: string }> = {
@@ -80,10 +80,13 @@ function timeAgo(dateStr: string) {
   return `${days}d ago`
 }
 
+const PAGE_SIZE = 10
+
 export function AnalyticsTab() {
   const [contacts, setContacts] = useState<ContactMessage[]>([])
   const [stats, setStats] = useState<VisitorStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     Promise.all([
@@ -92,6 +95,8 @@ export function AnalyticsTab() {
     ]).finally(() => setLoading(false))
   }, [])
 
+  const totalPages = Math.max(1, Math.ceil(contacts.length / PAGE_SIZE))
+  const paginated = contacts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const maxCountryCount = stats?.countries[0]?.count ?? 1
 
   return (
@@ -174,14 +179,25 @@ export function AnalyticsTab() {
             Contact Messages
           </p>
         </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-sm">
+            <colgroup>
+              <col className="w-[11%]" />
+              <col className="w-[14%]" />
+              <col className="w-[27%]" />
+              <col className="w-[13%]" />
+              <col className="w-[16%]" />
+              <col className="w-[7%]" />
+              <col className="w-[6%]" />
+              <col className="w-[6%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-zinc-100 dark:border-zinc-800">
-                {['Name', 'Email', 'Message', 'Referrer', 'Device', 'Country', 'Time', 'Date'].map((h) => (
+                {['Name', 'Email', 'Message', 'Referrer', 'Device', 'Country', 'Time', 'Date'].map((h, i) => (
                   <th
                     key={h}
-                    className="px-5 py-2.5 text-left font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400 last:text-right"
+                    className={`px-4 py-2.5 font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400 ${i === 7 ? 'text-right' : 'text-left'}`}
                   >
                     {h}
                   </th>
@@ -189,48 +205,6 @@ export function AnalyticsTab() {
               </tr>
             </thead>
             <tbody>
-              {contacts.map((msg, i) => (
-                <tr
-                  key={msg.id}
-                  className={`border-b border-zinc-50 last:border-0 dark:border-zinc-800/60 ${
-                    i % 2 !== 0 ? 'bg-zinc-50/50 dark:bg-zinc-800/20' : ''
-                  }`}
-                >
-                  <td className="whitespace-nowrap px-5 py-3 font-medium text-zinc-900 dark:text-zinc-50">
-                    {msg.name}
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">{msg.email}</td>
-                  <td className="w-64 max-w-[16rem] px-5 py-3 text-xs text-zinc-600 dark:text-zinc-400">
-                    <span className="line-clamp-2 overflow-hidden">{msg.message}</span>
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">
-                    {msg.referrer && msg.referrer !== 'direct' ? msg.referrer : 'Direct'}
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">
-                    {msg.device ?? '–'}
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">
-                    {msg.country ? (
-                      <span title={countryInfo(msg.country).name}>
-                        {countryInfo(msg.country).flag} {msg.country}
-                      </span>
-                    ) : '–'}
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-zinc-500">
-                    {formatTime(msg.timeOnSite)}
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3 text-right font-mono text-xs text-zinc-400">
-                    {timeAgo(msg.receivedAt)}
-                  </td>
-                </tr>
-              ))}
-              {!loading && contacts.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-5 py-8 text-center font-mono text-xs text-zinc-400">
-                    No messages yet
-                  </td>
-                </tr>
-              )}
               {loading && (
                 <tr>
                   <td colSpan={8} className="px-5 py-8 text-center font-mono text-xs text-zinc-400">
@@ -238,9 +212,104 @@ export function AnalyticsTab() {
                   </td>
                 </tr>
               )}
+              {!loading && contacts.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-8 text-center font-mono text-xs text-zinc-400">
+                    No messages yet
+                  </td>
+                </tr>
+              )}
+              {paginated.map((msg, i) => (
+                <tr
+                  key={msg.id}
+                  className={`border-b border-zinc-50 last:border-0 dark:border-zinc-800/60 ${
+                    i % 2 !== 0 ? 'bg-zinc-50/50 dark:bg-zinc-800/20' : ''
+                  }`}
+                >
+                  <td className="overflow-hidden px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50">
+                    <p className="truncate text-xs">{msg.name}</p>
+                  </td>
+                  <td className="overflow-hidden px-4 py-3">
+                    <p className="truncate text-xs text-zinc-500">{msg.email}</p>
+                  </td>
+                  <td className="overflow-hidden px-4 py-3">
+                    <p className="line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">{msg.message}</p>
+                  </td>
+                  <td className="overflow-hidden px-4 py-3">
+                    <p className="truncate text-xs text-zinc-500">
+                      {msg.referrer && msg.referrer !== 'direct' ? msg.referrer : 'Direct'}
+                    </p>
+                  </td>
+                  <td className="overflow-hidden px-4 py-3">
+                    <p className="truncate text-xs text-zinc-500">{msg.device ?? '–'}</p>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-500">
+                    {msg.country ? (
+                      <span title={countryInfo(msg.country).name}>
+                        {countryInfo(msg.country).flag} {msg.country}
+                      </span>
+                    ) : '–'}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-zinc-500">
+                    {formatTime(msg.timeOnSite)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-xs text-zinc-400">
+                    {timeAgo(msg.receivedAt)}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {contacts.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3 dark:border-zinc-800">
+            <p className="font-mono text-xs text-zinc-400">
+              {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, contacts.length)} of {contacts.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="flex size-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                <ChevronLeft className="size-3.5" />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…')
+                  acc.push(p)
+                  return acc
+                }, [])
+                .map((p, idx) =>
+                  p === '…' ? (
+                    <span key={`ellipsis-${idx}`} className="px-1 font-mono text-xs text-zinc-400">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p as number)}
+                      className={`flex size-7 items-center justify-center rounded-md font-mono text-xs transition-colors ${
+                        page === p
+                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                          : 'border border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ),
+                )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="flex size-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-500 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                <ChevronRight className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
