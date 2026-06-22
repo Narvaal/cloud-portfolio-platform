@@ -120,3 +120,36 @@ Both `GitHubPanel` and `VideoProjectCard` use the same expand/collapse pattern:
 ### Admin panel
 
 `/admin` is a client-side-only panel with a hardcoded password check (`"admin"`) — a placeholder until the real JWT flow (`POST /admin/login` via API Gateway + SSM) is wired up. Auth state is stored in `sessionStorage` as `admin_token`.
+
+### Scroll spy
+
+`useScrollSpy` (`src/hooks/useScrollSpy.ts`) returns `[activeId, notifyNavClick]`. It listens to the `scroll` event and compares each section's `absoluteTop` (= `getBoundingClientRect().top + scrollY`) against `scrollY + offset` (currently `250`). When the user is at the bottom of the page, the last section is always forced active. **Do not use IntersectionObserver** — it breaks for long sections and ratio-based sorting is unreliable.
+
+`notifyNavClick(id)` must be called from every nav `<a onClick>` to immediately set the active item and suppress the spy for 1 200 ms (via `suppressUntil` ref) so smooth-scroll animation doesn't race against the highlight.
+
+Section components must **not** have `scroll-mt-*` — `scroll-padding-top: 4rem` on `html` already handles the navbar offset. Double-applying both shifts sections too far down.
+
+### View Transitions
+
+Theme and language toggles use the View Transitions API (`document.startViewTransition`). Before calling it, set `data-vt="theme"` or `data-vt="lang"` on `<html>` — CSS in `src/index.css` uses this attribute to select the right animation:
+
+- **Theme** (`data-vt="theme"`): circular reveal from the button origin. CSS vars `--vt-x` / `--vt-y` are set before the transition.
+- **Lang** (`data-vt="lang"`): old snapshot stays (`animation: none; z-index: 0`), new fades in on top (`z-index: 1`). This avoids a black flash that would appear if the old content faded out before the new content faded in.
+
+Always use `flushSync(() => setState(...))` inside the transition callback so React commits synchronously before the browser captures the new snapshot.
+
+### Background effects
+
+`BackgroundEffects.tsx` renders a fixed full-screen layer (`z-index: -10`) with four children (in order):
+
+1. **Dot grid** — `<div className="dot-grid">`: radial-gradient dots (28 px grid), masked with `linear-gradient(to right, black, transparent 18%, transparent 82%, black)` so dots appear only on the left/right sides and are hidden across the full-height center column.
+2. **Orb 1** — top-right, cyan, `animate-orb-1` (28 s drift).
+3. **Orb 2** — bottom-left, violet, `animate-orb-2` (34 s drift).
+4. **Orb 3** — centered, very subtle cyan, `animate-orb-3` (22 s drift).
+5. **Mouse glow** — fixed overlay reading `--mouse-x` / `--mouse-y` CSS vars (updated via `mousemove` listener in `useEffect`).
+
+**Critical:** the background color must be set on `body`, not `html`. Setting it on `html` creates a stacking context that hides fixed elements with negative `z-index` (the orbs and dot grid disappear). The FOUC-prevention inline `<style>` in `index.html` already targets `body`.
+
+### FOUC prevention
+
+`index.html` has an inline `<script>` before `</head>` that reads `localStorage('theme')` and adds `class="dark"` to `<html>` before first paint. An inline `<style>` sets `body { background: #ffffff }` / `html.dark body { background: #09090b }` so the background is correct even before the CSS bundle loads.
