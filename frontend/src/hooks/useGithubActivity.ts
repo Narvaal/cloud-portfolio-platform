@@ -45,6 +45,14 @@ function writeCache(data: GithubActivity) {
   }
 }
 
+const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN as string | undefined
+
+function githubHeaders(): HeadersInit {
+  return GITHUB_TOKEN
+    ? { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+    : { Accept: 'application/vnd.github+json' }
+}
+
 export function useGithubActivity(username: string) {
   const [data, setData] = useState<GithubActivity | null>(() => readCache())
   const [loading, setLoading] = useState(() => readCache() === null)
@@ -56,6 +64,7 @@ export function useGithubActivity(username: string) {
       try {
         const reposRes = await fetch(
           `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=public`,
+          { headers: githubHeaders() },
         )
         if (!reposRes.ok) return // rate limited or error — keep showing cached/empty
         const rawRepos = await reposRes.json()
@@ -75,6 +84,7 @@ export function useGithubActivity(username: string) {
           repos.map(async (repo) => {
             const res = await fetch(
               `https://api.github.com/repos/${username}/${repo.name}/commits?per_page=2`,
+              { headers: githubHeaders() },
             )
             if (!res.ok) return []
             const raw = await res.json()
