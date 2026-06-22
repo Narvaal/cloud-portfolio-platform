@@ -232,8 +232,8 @@ export function AnalyticsTab() {
                   <td className="overflow-hidden px-4 py-3">
                     <p className="truncate text-xs text-zinc-500">{msg.email}</p>
                   </td>
-                  <td className="overflow-hidden px-4 py-3">
-                    <p className="line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">{msg.message}</p>
+                  <td className="px-4 py-3">
+                    <p className="break-words text-xs text-zinc-600 dark:text-zinc-400">{msg.message}</p>
                   </td>
                   <td className="overflow-hidden px-4 py-3">
                     <p className="truncate text-xs text-zinc-500">
