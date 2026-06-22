@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { AlertCircle, CheckCircle } from 'lucide-react'
 import { Button } from './ui/Button'
 import { Section } from './ui/Section'
@@ -15,6 +15,7 @@ export function ContactSection() {
   const { contact } = t
   const [form, setForm] = useState({ name: '', email: '', message: '' })
   const [status, setStatus] = useState<Status>('idle')
+  const arrivedAt = useRef(Date.now())
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -26,7 +27,12 @@ export function ContactSection() {
     e.preventDefault()
     setStatus('sending')
     try {
-      await sendContactMessage(form)
+      await sendContactMessage({
+        ...form,
+        timeOnSite: Math.round((Date.now() - arrivedAt.current) / 1000),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        locale: navigator.language,
+      })
       setStatus('success')
       setForm({ name: '', email: '', message: '' })
     } catch {
