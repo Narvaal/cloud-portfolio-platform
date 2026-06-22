@@ -1,16 +1,63 @@
 import { useEffect, useState } from 'react'
 import { Globe, Mail, Users } from 'lucide-react'
-import { getContacts, getVisitorCount, type ContactMessage } from '../../../services/api'
+import { getContacts, getVisitorStats, type ContactMessage, type VisitorStats } from '../../../services/api'
 
-const mockVisitors = [
-  { country: 'BR', flag: '🇧🇷', name: 'Brazil', count: 142 },
-  { country: 'US', flag: '🇺🇸', name: 'United States', count: 87 },
-  { country: 'DE', flag: '🇩🇪', name: 'Germany', count: 34 },
-  { country: 'PT', flag: '🇵🇹', name: 'Portugal', count: 28 },
-  { country: 'CA', flag: '🇨🇦', name: 'Canada', count: 19 },
-  { country: 'NL', flag: '🇳🇱', name: 'Netherlands', count: 11 },
-]
-const maxCount = Math.max(...mockVisitors.map((v) => v.count))
+const COUNTRY_INFO: Record<string, { name: string; flag: string }> = {
+  BR: { name: 'Brazil', flag: '🇧🇷' },
+  US: { name: 'United States', flag: '🇺🇸' },
+  DE: { name: 'Germany', flag: '🇩🇪' },
+  PT: { name: 'Portugal', flag: '🇵🇹' },
+  CA: { name: 'Canada', flag: '🇨🇦' },
+  NL: { name: 'Netherlands', flag: '🇳🇱' },
+  FR: { name: 'France', flag: '🇫🇷' },
+  GB: { name: 'United Kingdom', flag: '🇬🇧' },
+  AR: { name: 'Argentina', flag: '🇦🇷' },
+  MX: { name: 'Mexico', flag: '🇲🇽' },
+  IN: { name: 'India', flag: '🇮🇳' },
+  JP: { name: 'Japan', flag: '🇯🇵' },
+  AU: { name: 'Australia', flag: '🇦🇺' },
+  ES: { name: 'Spain', flag: '🇪🇸' },
+  IT: { name: 'Italy', flag: '🇮🇹' },
+  PL: { name: 'Poland', flag: '🇵🇱' },
+  UA: { name: 'Ukraine', flag: '🇺🇦' },
+  CN: { name: 'China', flag: '🇨🇳' },
+  KR: { name: 'South Korea', flag: '🇰🇷' },
+  SE: { name: 'Sweden', flag: '🇸🇪' },
+  NO: { name: 'Norway', flag: '🇳🇴' },
+  CH: { name: 'Switzerland', flag: '🇨🇭' },
+  BE: { name: 'Belgium', flag: '🇧🇪' },
+  CL: { name: 'Chile', flag: '🇨🇱' },
+  CO: { name: 'Colombia', flag: '🇨🇴' },
+  ZA: { name: 'South Africa', flag: '🇿🇦' },
+  NG: { name: 'Nigeria', flag: '🇳🇬' },
+  SG: { name: 'Singapore', flag: '🇸🇬' },
+  AE: { name: 'UAE', flag: '🇦🇪' },
+  IL: { name: 'Israel', flag: '🇮🇱' },
+  FI: { name: 'Finland', flag: '🇫🇮' },
+  DK: { name: 'Denmark', flag: '🇩🇰' },
+  AT: { name: 'Austria', flag: '🇦🇹' },
+  CZ: { name: 'Czech Republic', flag: '🇨🇿' },
+  RO: { name: 'Romania', flag: '🇷🇴' },
+  HU: { name: 'Hungary', flag: '🇭🇺' },
+  TR: { name: 'Turkey', flag: '🇹🇷' },
+  RU: { name: 'Russia', flag: '🇷🇺' },
+  ID: { name: 'Indonesia', flag: '🇮🇩' },
+  PH: { name: 'Philippines', flag: '🇵🇭' },
+  VN: { name: 'Vietnam', flag: '🇻🇳' },
+  TH: { name: 'Thailand', flag: '🇹🇭' },
+  NZ: { name: 'New Zealand', flag: '🇳🇿' },
+  GR: { name: 'Greece', flag: '🇬🇷' },
+  PE: { name: 'Peru', flag: '🇵🇪' },
+  EC: { name: 'Ecuador', flag: '🇪🇨' },
+  UY: { name: 'Uruguay', flag: '🇺🇾' },
+  PY: { name: 'Paraguay', flag: '🇵🇾' },
+  BO: { name: 'Bolivia', flag: '🇧🇴' },
+  VE: { name: 'Venezuela', flag: '🇻🇪' },
+}
+
+function countryInfo(code: string) {
+  return COUNTRY_INFO[code] ?? { name: code, flag: '🏳️' }
+}
 
 function formatTime(seconds?: number) {
   if (!seconds || seconds < 5) return '–'
@@ -23,28 +70,34 @@ function formatTime(seconds?: number) {
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime()
-  const days = Math.floor(diff / 86400000)
-  if (days === 0) return 'Today'
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
   if (days === 1) return 'Yesterday'
   return `${days}d ago`
 }
 
 export function AnalyticsTab() {
   const [contacts, setContacts] = useState<ContactMessage[]>([])
-  const [visitorCount, setVisitorCount] = useState<number | null>(null)
+  const [stats, setStats] = useState<VisitorStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       getContacts().then(setContacts),
-      getVisitorCount().then(setVisitorCount),
+      getVisitorStats().then(setStats),
     ]).finally(() => setLoading(false))
   }, [])
+
+  const maxCountryCount = stats?.countries[0]?.count ?? 1
 
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold text-zinc-900 dark:text-zinc-50">Analytics</h2>
-      <p className="mb-6 text-sm text-zinc-500">Visitor stats and contact messages.</p>
+      <p className="mb-6 text-sm text-zinc-500">Live data from DynamoDB.</p>
 
       {/* Summary cards */}
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -54,7 +107,7 @@ export function AnalyticsTab() {
             <span className="font-mono text-xs uppercase tracking-widest">Total Visitors</span>
           </div>
           <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-            {visitorCount != null ? visitorCount.toLocaleString() : '–'}
+            {loading ? '–' : (stats?.count ?? 0).toLocaleString()}
           </p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
@@ -62,7 +115,9 @@ export function AnalyticsTab() {
             <Globe className="size-4" />
             <span className="font-mono text-xs uppercase tracking-widest">Countries</span>
           </div>
-          <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{mockVisitors.length}</p>
+          <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+            {loading ? '–' : (stats?.countries.length ?? 0)}
+          </p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-2 flex items-center gap-2 text-zinc-400">
@@ -80,25 +135,36 @@ export function AnalyticsTab() {
         <p className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-zinc-500">
           Visitors by Country
         </p>
-        <div className="space-y-3">
-          {mockVisitors.map((v) => (
-            <div key={v.country}>
-              <div className="mb-1 flex items-center justify-between text-xs">
-                <span className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  <span>{v.flag}</span>
-                  <span>{v.name}</span>
-                </span>
-                <span className="font-mono text-zinc-500">{v.count}</span>
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
-                <div
-                  className="h-1.5 rounded-full bg-accent-500"
-                  style={{ width: `${(v.count / maxCount) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+        {loading && (
+          <p className="py-4 text-center font-mono text-xs text-zinc-400">Loading…</p>
+        )}
+        {!loading && !stats?.countries.length && (
+          <p className="py-4 text-center font-mono text-xs text-zinc-400">No visitor data yet</p>
+        )}
+        {!loading && !!stats?.countries.length && (
+          <div className="space-y-3">
+            {stats.countries.map((v) => {
+              const info = countryInfo(v.code)
+              return (
+                <div key={v.code}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                      <span>{info.flag}</span>
+                      <span>{info.name}</span>
+                    </span>
+                    <span className="font-mono text-zinc-500">{v.count}</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
+                    <div
+                      className="h-1.5 rounded-full bg-accent-500"
+                      style={{ width: `${(v.count / maxCountryCount) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Messages table */}
@@ -144,7 +210,11 @@ export function AnalyticsTab() {
                     {msg.device ?? '–'}
                   </td>
                   <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">
-                    {msg.country ?? '–'}
+                    {msg.country ? (
+                      <span title={countryInfo(msg.country).name}>
+                        {countryInfo(msg.country).flag} {msg.country}
+                      </span>
+                    ) : '–'}
                   </td>
                   <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-zinc-500">
                     {formatTime(msg.timeOnSite)}
@@ -156,11 +226,15 @@ export function AnalyticsTab() {
               ))}
               {!loading && contacts.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-8 text-center font-mono text-xs text-zinc-400"
-                  >
+                  <td colSpan={8} className="px-5 py-8 text-center font-mono text-xs text-zinc-400">
                     No messages yet
+                  </td>
+                </tr>
+              )}
+              {loading && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-8 text-center font-mono text-xs text-zinc-400">
+                    Loading…
                   </td>
                 </tr>
               )}

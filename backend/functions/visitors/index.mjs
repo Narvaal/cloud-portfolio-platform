@@ -1,4 +1,5 @@
-import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb'
+import { DynamoDBClient, UpdateItemCommand, ScanCommand } from '@aws-sdk/client-dynamodb'
+import { unmarshall } from '@aws-sdk/util-dynamodb'
 
 const ddb = new DynamoDBClient({})
 const TABLE = process.env.VISITORS_TABLE
@@ -21,12 +22,17 @@ async function increment(pk) {
   return parseInt(result.Attributes.count.N)
 }
 
-async function getTotal() {
-  const result = await ddb.send(new GetItemCommand({
-    TableName: TABLE,
-    Key: { pk: { S: 'TOTAL' } },
-  }))
-  return result.Item?.count?.N ? parseInt(result.Item.count.N) : 0
+async function getStats() {
+  const result = await ddb.send(new ScanCommand({ TableName: TABLE }))
+  const items = (result.Items ?? []).map((item) => unmarshall(item))
+
+  const count = items.find((i) => i.pk === 'TOTAL')?.count ?? 0
+  const countries = items
+    .filter((i) => i.pk.startsWith('COUNTRY#'))
+    .map((i) => ({ code: i.pk.replace('COUNTRY#', ''), count: i.count }))
+    .sort((a, b) => b.count - a.count)
+
+  return { count, countries }
 }
 
 export const handler = async (event) => {
@@ -48,11 +54,11 @@ export const handler = async (event) => {
   }
 
   if (method === 'GET') {
-    const count = await getTotal()
+    const stats = await getStats()
     return {
       statusCode: 200,
       headers: CORS,
-      body: JSON.stringify({ count }),
+      body: JSON.stringify(stats),
     }
   }
 

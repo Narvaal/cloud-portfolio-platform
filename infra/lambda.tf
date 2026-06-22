@@ -58,7 +58,7 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+        Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Scan"]
         Resource = aws_dynamodb_table.visitors.arn
       },
       {
