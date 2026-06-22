@@ -38,15 +38,15 @@ This is a **cloud-native portfolio platform** built on AWS. The frontend is a Re
 
 | Layer | Tech | Status |
 |---|---|---|
-| Hosting | S3 + CloudFront | **live** |
+| Hosting | S3 + CloudFront (OAC) | **live** |
 | CI/CD | GitHub Actions | **live** |
-| API | API Gateway HTTP API + Lambda (Node.js 20) | **live** (GET /status only) |
+| API | API Gateway HTTP API + Lambda (Node.js 20) | **live** |
 | IaC | Terraform (`infra/`) | **live** |
-| Secrets / config | SSM Parameter Store | **live** (deploy params) |
-| Database | DynamoDB | planned |
-| Email | SES (contact form) | planned |
+| Secrets / config | SSM Parameter Store | **live** |
+| Database | DynamoDB | **live** (visitors + contacts tables) |
+| Email | SES | **live** (contact form) |
 
-Frontend connects to the backend via `VITE_API_BASE_URL` (API Gateway invoke URL). When unset locally, all API calls fall back safely so the UI works without infra.
+Frontend connects to the backend via `VITE_API_BASE_URL` (API Gateway invoke URL). When unset locally, all API calls return safe fallbacks so the UI works without infra.
 
 ### Environment variables
 
@@ -70,15 +70,22 @@ GitHub secrets required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGI
 ```
 infra/
   versions.tf          # provider AWS ~> 5.0
-  variables.tf         # aws_region, project_name, environment
+  variables.tf         # aws_region, project_name, environment, contact_email
   main.tf              # S3, CloudFront OAC, SSM params, GitHub Actions IAM user
-  lambda.tf            # Lambda exec role + status function (zipped via archive_file)
-  api_gateway.tf       # HTTP API, $default stage, GET /status route, Lambda permission
+  lambda.tf            # Lambda exec role + all Lambda functions (zipped via archive_file)
+  api_gateway.tf       # HTTP API, $default stage, all routes + Lambda permissions
+  dynamodb.tf          # visitors table (PK: pk String) + contacts table (PK: id String)
+  ses.tf               # SES email identity + Lambda SES IAM policy
   outputs.tf           # CloudFront URL, API GW URL, S3 bucket, IAM keys
   terraform.tfvars.example
 ```
 
 Run order: `terraform init` → `terraform plan` → `terraform apply`. After first apply, copy outputs to GitHub secrets.
+
+For Lambda hotfixes without a full CI/CD cycle:
+```bash
+terraform apply -target=aws_lambda_function.contact
+```
 
 SSM parameters managed by Terraform (initial values), overwritten by CI on every deploy:
 - `/portfolio/version` — full git SHA
@@ -86,33 +93,83 @@ SSM parameters managed by Terraform (initial values), overwritten by CI on every
 - `/portfolio/last-commit-sha` — 7-char short SHA
 - `/portfolio/last-commit-message` — commit subject line
 
-### Backend — `backend/`
+### DynamoDB tables
+
+Both tables use `PAY_PER_REQUEST` billing.
+
+**`cloud-portfolio-visitors-prod`** — visitor counter
+- PK: `pk` (String) — `"TOTAL"` for global count, `"COUNTRY#BR"` etc. for per-country counts
+- Attribute: `count` (Number) — atomically incremented with `ADD`
+
+**`cloud-portfolio-contacts-prod`** — contact form submissions
+- PK: `id` (String) — `"${Date.now()}-${randomSuffix}"` (sortable by newest first)
+- Attributes: `name`, `email`, `message`, `referrer`, `device`, `timezone`, `locale`, `timeOnSite` (Number, seconds), `country`, `ip`, `receivedAt` (ISO 8601)
+
+### Backend — `backend/functions/`
 
 ```
 backend/
   functions/
     status/
-      index.mjs   # GET /status — reads SSM params, returns api/frontend health + lastDeploy + lastCommit
+      index.mjs   # GET /status — reads 4 SSM params, returns { api, frontend, version, lastDeploy, lastCommit }
+    visitors/
+      index.mjs   # GET /visitors — returns { count } from TOTAL item
+                  # POST /visitors — atomically increments TOTAL + COUNTRY#xx, returns { count }
+    contact/
+      index.mjs   # POST /contact — validates body, sends HTML+text SES email, saves to DynamoDB contacts table
+    contacts/
+      index.mjs   # GET /contacts — scans contacts table, returns { items } sorted by id desc (newest first)
 ```
 
-Lambda runtime: `nodejs20.x`. Uses `@aws-sdk/client-ssm` (available in runtime, no bundling needed). CORS headers included inline (`Access-Control-Allow-Origin: *`).
+Lambda runtime: `nodejs20.x`. All AWS SDK v3 clients (`@aws-sdk/client-ses`, `@aws-sdk/client-dynamodb`, `@aws-sdk/util-dynamodb`, `@aws-sdk/client-ssm`) are available in the runtime without bundling. CORS headers included inline in every Lambda (`Access-Control-Allow-Origin: *`).
 
-### Planned backend features
+### Live API endpoints
 
-**Visitor Counter** — `POST /visitors` increments a DynamoDB atomic counter per country (country extracted from `CloudFront-Viewer-Country` header). `GET /visitors` returns total + breakdown.
+| Method | Path | Lambda | Description |
+|---|---|---|---|
+| GET | `/status` | status | SSM params → health + lastDeploy + lastCommit |
+| GET | `/visitors` | visitors | returns `{ count }` |
+| POST | `/visitors` | visitors | increments counter (country from CloudFront header), returns `{ count }` |
+| POST | `/contact` | contact | sends SES email + saves to contacts DynamoDB table |
+| GET | `/contacts` | contacts_get | lists all contact submissions, newest first |
 
-**GitHub Activity (server-side cache)** — EventBridge cron (1h) runs `syncGithubActivity` Lambda, fetches from GitHub API using a PAT stored in `/portfolio/github-token` (SSM SecureString), writes to DynamoDB `github_cache` table with TTL. `GET /github/activity` serves the cached data. Currently the frontend fetches GitHub API directly with a `VITE_GITHUB_TOKEN` client-side workaround.
+### Contact Lambda details
 
-**Admin CMS** — `/admin` route (already scaffolded) will become a full CMS: edit projects, experience, certifications stored in DynamoDB `portfolio_content` table (PK: `type`, SK: `lang`), upload resume PDFs via S3 presigned URLs, view contact form submissions and visitor analytics. Auth: JWT issued by `POST /admin/login` Lambda, validated against a password in `/portfolio/admin-password` SSM. JWT secret in `/portfolio/admin-jwt-secret`.
+`backend/functions/contact/index.mjs`:
+- Validates `name`, `email`, `message` (400 if missing)
+- Reads visitor metadata: `cloudfront-viewer-country` header, `requestContext.http.sourceIp`, `user-agent` (parsed to `"Desktop · macOS · Chrome"` format)
+- Receives from frontend: `timeOnSite` (seconds on site), `timezone` (IANA), `locale` (navigator.language), `referrer` (document.referrer or `"direct"`)
+- Sends branded HTML email from `Alessandro Bezerra da Silva <CONTACT_EMAIL>`, Reply-To set to sender
+- Subject: `[Portfolio] ${name} — ${message.slice(0, 55)}…`
+- After email: writes full record to DynamoDB contacts table; DynamoDB failure is caught and logged so the email always delivers
+- Env vars: `CONTACT_EMAIL`, `CONTACTS_TABLE`
+
+### Lambda IAM permissions
+
+Single `lambda_exec` role shared by all functions:
+- `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
+- `ssm:GetParameters` on `arn:aws:ssm:*:*:parameter/portfolio/*`
+- `dynamodb:GetItem`, `dynamodb:UpdateItem` on visitors table
+- `dynamodb:PutItem`, `dynamodb:Scan` on contacts table
+- `ses:SendEmail` on the SES email identity + `configuration-set/*`
+
+### Planned / next
+
+**Admin dashboard improvements** — The `/admin` panel currently shows real visitor count and real contact messages. Next: replace hardcoded password with JWT auth (`POST /admin/login` Lambda reading `/portfolio/admin-password` from SSM), add visitor country breakdown endpoint, add content management (projects, experience, certifications from DynamoDB).
+
+**Server-side GitHub activity cache** — EventBridge cron (1h) Lambda fetches from GitHub API using PAT in SSM SecureString, writes to DynamoDB `github_cache` table with TTL. `GET /github/activity` serves it. Currently the frontend fetches GitHub directly with `VITE_GITHUB_TOKEN`.
+
+**Content CMS** — projects, experience, certifications migrate from `en.ts`/`pt.ts` to DynamoDB `portfolio_content` table (PK: `type`, SK: `lang`), editable from admin panel.
+
+**Resume upload** — S3 presigned URL + CloudFront invalidation on upload.
 
 ### Remaining implementation order
 
-1. Visitor counter (Lambda + DynamoDB atomic counter)
-2. Migrate i18n content (`en.ts`/`pt.ts` arrays) → DynamoDB `portfolio_content` table
-3. Resume upload (S3 presigned URL + CloudFront invalidation on upload)
-4. Admin auth (JWT via SSM) + `/admin` route integration
+1. Admin dashboard improvements (visitor breakdown, JWT auth, content management)
+2. Server-side GitHub activity cache (replace `VITE_GITHUB_TOKEN` workaround)
+3. Migrate i18n content arrays → DynamoDB `portfolio_content` table
+4. Resume upload (S3 presigned URL)
 5. Content editing forms in admin panel
-6. Server-side GitHub activity cache (replace the current `VITE_GITHUB_TOKEN` workaround)
 
 ## Commands
 
@@ -158,12 +215,16 @@ Both `GitHubPanel` and `VideoProjectCard` use the same expand/collapse pattern:
 
 ### Backend / API
 
-`src/services/api.ts` is a thin fetch wrapper pointing at `VITE_API_BASE_URL`. When the env var is unset (local dev without backend), all calls return safe fallbacks so the UI works without infrastructure. Live endpoints:
-- `GET /status` — returns `{ api, frontend, lastDeploy, version, lastCommit? }`
+`src/services/api.ts` is a thin fetch wrapper pointing at `VITE_API_BASE_URL`. When the env var is unset (local dev without backend), all calls return safe fallbacks so the UI works without infrastructure.
 
-Planned:
-- `POST /contact` — sends email via SES
-- `POST /visitors` — increments DynamoDB counter and returns the count
+Interfaces exported: `InfraStatus`, `ContactPayload`, `ContactMessage`.
+
+Functions exported:
+- `getInfraStatus()` — polls GET /status every 60s via `useInfraStatus` hook
+- `fetchVisitorCount()` — POST /visitors (increments on page load, called once from `useVisitorCount`)
+- `getVisitorCount()` — GET /visitors (read-only, used in admin panel)
+- `sendContactMessage(payload)` — POST /contact
+- `getContacts()` — GET /contacts, returns `ContactMessage[]` sorted newest first
 
 ### GitHub activity
 
@@ -177,11 +238,25 @@ All requests include `Authorization: Bearer $VITE_GITHUB_TOKEN` when the env var
 - Polls `GET /status` every 60s
 - Header shows the **round-trip response time in ms** (measured via `performance.now()` in the hook, exposed as `responseTime`)
 - Shows API status, Frontend status, and Last Commit (SHA + message, `line-clamp-2`)
-- **Last Deploy was moved to the Footer** — shows on the right side of the bottom row, formatted as relative time (e.g. "5m ago"). Hidden when API is unavailable.
+- **Last Deploy is in the Footer** — shows on the right side of the bottom row, formatted as relative time (e.g. "5m ago"). Hidden when API is unavailable.
+
+### ContactSection
+
+`src/components/ContactSection.tsx`:
+- Records `arrivedAt = useRef(Date.now())` on mount
+- On submit, sends `timeOnSite` (seconds), `timezone` (`Intl.DateTimeFormat().resolvedOptions().timeZone`), `locale` (`navigator.language`), `referrer` (`document.referrer || 'direct'`) along with name/email/message
 
 ### Admin panel
 
-`/admin` is a client-side-only panel with a hardcoded password check (`"admin"`) — a placeholder until the real JWT flow (`POST /admin/login` via API Gateway + SSM) is wired up. Auth state is stored in `sessionStorage` as `admin_token`.
+`/admin` route (`src/components/admin/AdminPage.tsx`):
+- Client-side password check (hardcoded `"admin"`) — placeholder until real JWT flow is wired up
+- Auth state stored in `sessionStorage` as `admin_token`
+- Tabs: Overview, Analytics, Content, Settings
+
+**AnalyticsTab** (`src/components/admin/tabs/AnalyticsTab.tsx`):
+- On mount: fetches real contacts via `getContacts()` and real visitor total via `getVisitorCount()`
+- Messages table columns: Name | Email | Message | Referrer | Device | Country | Time on site | Date
+- Visitor country breakdown is currently mock data (no country breakdown endpoint yet)
 
 ### Scroll spy
 

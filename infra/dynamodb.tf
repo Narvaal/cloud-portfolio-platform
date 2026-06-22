@@ -1,3 +1,16 @@
+resource "aws_dynamodb_table" "contacts" {
+  name         = "${var.project_name}-contacts-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "id"
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+
+  tags = local.tags
+}
+
 resource "aws_dynamodb_table" "visitors" {
   name         = "${var.project_name}-visitors-${var.environment}"
   billing_mode = "PAY_PER_REQUEST"
