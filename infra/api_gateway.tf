@@ -39,6 +39,29 @@ resource "aws_lambda_permission" "api_gw_status" {
   source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
 }
 
+# ── Contact ───────────────────────────────────────────────────────────────────
+
+resource "aws_apigatewayv2_integration" "contact" {
+  api_id                 = aws_apigatewayv2_api.portfolio.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.contact.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "contact" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "POST /contact"
+  target    = "integrations/${aws_apigatewayv2_integration.contact.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_contact" {
+  statement_id  = "AllowAPIGatewayInvokeContact"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.contact.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
+}
+
 # ── Visitors ──────────────────────────────────────────────────────────────────
 
 resource "aws_apigatewayv2_integration" "visitors" {

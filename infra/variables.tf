@@ -10,6 +10,11 @@ variable "project_name" {
   default     = "cloud-portfolio"
 }
 
+variable "contact_email" {
+  description = "Email address for receiving contact form submissions — must be verified in SES"
+  type        = string
+}
+
 variable "environment" {
   description = "Deployment environment"
   type        = string

@@ -1,0 +1,17 @@
+resource "aws_ses_email_identity" "contact" {
+  email = var.contact_email
+}
+
+resource "aws_iam_role_policy" "lambda_ses_send" {
+  name = "${var.project_name}-lambda-ses-send-${var.environment}"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ses:SendEmail"]
+      Resource = aws_ses_email_identity.contact.arn
+    }]
+  })
+}

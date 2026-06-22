@@ -1,3 +1,4 @@
-aws_region   = "us-east-1"
-project_name = "cloud-portfolio"
-environment  = "prod"
+aws_region    = "us-east-1"
+project_name  = "cloud-portfolio"
+environment   = "prod"
+contact_email = "your-email@example.com"
