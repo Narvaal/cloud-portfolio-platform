@@ -57,3 +57,17 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
+
+      - name: Write deploy info to SSM
+        run: |
+          aws ssm put-parameter --name /portfolio/version \
+            --value "${{ github.sha }}" --type String --overwrite
+
+          aws ssm put-parameter --name /portfolio/last-deploy \
+            --value "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --type String --overwrite
+
+          aws ssm put-parameter --name /portfolio/last-commit-sha \
+            --value "${GITHUB_SHA::7}" --type String --overwrite
+
+          aws ssm put-parameter --name /portfolio/last-commit-message \
+            --value "${{ github.event.head_commit.message }}" --type String --overwrite

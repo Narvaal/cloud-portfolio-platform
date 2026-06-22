@@ -23,3 +23,8 @@ output "github_actions_secret_access_key" {
   value       = aws_iam_access_key.github_actions.secret
   sensitive   = true
 }
+
+output "api_gateway_url" {
+  description = "API Gateway base URL — add to GitHub secret VITE_API_BASE_URL"
+  value       = aws_apigatewayv2_stage.default.invoke_url
+}
