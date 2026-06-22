@@ -63,7 +63,7 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
       },
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:PutItem", "dynamodb:Scan"]
+        Action   = ["dynamodb:PutItem", "dynamodb:Scan", "dynamodb:UpdateItem"]
         Resource = aws_dynamodb_table.contacts.arn
       },
     ]
@@ -114,6 +114,32 @@ data "archive_file" "contacts_lambda" {
   source {
     content  = file("${path.module}/../backend/functions/contacts/index.mjs")
     filename = "index.mjs"
+  }
+}
+
+data "archive_file" "contacts_patch_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.build/contacts-patch.zip"
+  source {
+    content  = file("${path.module}/../backend/functions/contacts-patch/index.mjs")
+    filename = "index.mjs"
+  }
+}
+
+resource "aws_lambda_function" "contacts_patch" {
+  function_name    = "${var.project_name}-contacts-patch-${var.environment}"
+  filename         = data.archive_file.contacts_patch_lambda.output_path
+  source_code_hash = data.archive_file.contacts_patch_lambda.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
+  role             = aws_iam_role.lambda_exec.arn
+  timeout          = 10
+  tags             = local.tags
+
+  environment {
+    variables = {
+      CONTACTS_TABLE = aws_dynamodb_table.contacts.name
+    }
   }
 }
 

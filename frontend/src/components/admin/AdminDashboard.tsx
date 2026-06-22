@@ -1,16 +1,12 @@
-import { useState } from 'react'
-import { BarChart2, FileText, LayoutDashboard, LogOut, Pencil } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { BarChart2, FileText, Inbox, LayoutDashboard, LogOut, Pencil } from 'lucide-react'
+import { getContacts } from '../../services/api'
 import { ResumeTab } from './tabs/ResumeTab'
 import { ContentTab } from './tabs/ContentTab'
 import { AnalyticsTab } from './tabs/AnalyticsTab'
+import { MessagesTab } from './tabs/MessagesTab'
 
-type Tab = 'analytics' | 'resume' | 'content'
-
-const nav: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-  { id: 'resume', label: 'Resume', icon: FileText },
-  { id: 'content', label: 'Content', icon: Pencil },
-]
+type Tab = 'analytics' | 'messages' | 'resume' | 'content'
 
 interface Props {
   onLogout: () => void
@@ -18,13 +14,24 @@ interface Props {
 
 export function AdminDashboard({ onLogout }: Props) {
   const [active, setActive] = useState<Tab>('analytics')
+  const [unreadCount, setUnreadCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    getContacts().then((items) => setUnreadCount(items.filter((m) => !m.read).length))
+  }, [])
+
+  const nav: { id: Tab; label: string; icon: React.ElementType; badge?: number | null }[] = [
+    { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+    { id: 'messages', label: 'Messages', icon: Inbox, badge: unreadCount },
+    { id: 'resume', label: 'Resume', icon: FileText },
+    { id: 'content', label: 'Content', icon: Pencil },
+  ]
 
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
 
       {/* Sidebar */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        {/* Brand */}
         <div className="flex items-center gap-2.5 border-b border-zinc-100 px-5 py-4 dark:border-zinc-800">
           <div className="flex size-7 items-center justify-center rounded-lg bg-zinc-900 dark:bg-zinc-100">
             <LayoutDashboard className="size-3.5 text-white dark:text-zinc-900" />
@@ -35,13 +42,12 @@ export function AdminDashboard({ onLogout }: Props) {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 p-3">
           <p className="mb-2 px-2 font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400">
             Menu
           </p>
           <ul className="space-y-0.5">
-            {nav.map(({ id, label, icon: Icon }) => (
+            {nav.map(({ id, label, icon: Icon, badge }) => (
               <li key={id}>
                 <button
                   onClick={() => setActive(id)}
@@ -52,14 +58,18 @@ export function AdminDashboard({ onLogout }: Props) {
                   }`}
                 >
                   <Icon className="size-4 shrink-0" />
-                  {label}
+                  <span className="flex-1 text-left">{label}</span>
+                  {badge != null && badge > 0 && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-500 px-1 font-mono text-[10px] font-bold text-white">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
                 </button>
               </li>
             ))}
           </ul>
         </nav>
 
-        {/* Logout */}
         <div className="border-t border-zinc-100 p-3 dark:border-zinc-800">
           <button
             onClick={onLogout}
@@ -75,6 +85,9 @@ export function AdminDashboard({ onLogout }: Props) {
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-4xl p-8">
           {active === 'analytics' && <AnalyticsTab />}
+          {active === 'messages' && (
+            <MessagesTab onMarkRead={() => setUnreadCount((c) => Math.max(0, (c ?? 1) - 1))} />
+          )}
           {active === 'resume' && <ResumeTab />}
           {active === 'content' && <ContentTab />}
         </div>

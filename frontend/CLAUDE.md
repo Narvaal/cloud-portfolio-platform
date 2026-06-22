@@ -74,7 +74,7 @@ infra/
   main.tf              # S3, CloudFront OAC, SSM params, GitHub Actions IAM user
   lambda.tf            # Lambda exec role + all Lambda functions (zipped via archive_file)
   api_gateway.tf       # HTTP API, $default stage, all routes + Lambda permissions
-  dynamodb.tf          # visitors table (PK: pk String) + contacts table (PK: id String)
+  dynamodb.tf          # visitors table + contacts table (+ settings table, planned)
   ses.tf               # SES email identity + Lambda SES IAM policy
   outputs.tf           # CloudFront URL, API GW URL, S3 bucket, IAM keys
   terraform.tfvars.example
@@ -98,12 +98,14 @@ SSM parameters managed by Terraform (initial values), overwritten by CI on every
 Both tables use `PAY_PER_REQUEST` billing.
 
 **`cloud-portfolio-visitors-prod`** — visitor counter
-- PK: `pk` (String) — `"TOTAL"` for global count, `"COUNTRY#BR"` etc. for per-country counts
+- PK: `pk` (String) — `"TOTAL"` for global count, `"COUNTRY#BR"` etc. for per-country
 - Attribute: `count` (Number) — atomically incremented with `ADD`
+- `GET /visitors` scans all items to return `{ count, countries: [{code, count}] }`
 
 **`cloud-portfolio-contacts-prod`** — contact form submissions
-- PK: `id` (String) — `"${Date.now()}-${randomSuffix}"` (sortable by newest first)
+- PK: `id` (String) — `"${Date.now()}-${randomSuffix}"` (sorts newest-first lexicographically)
 - Attributes: `name`, `email`, `message`, `referrer`, `device`, `timezone`, `locale`, `timeOnSite` (Number, seconds), `country`, `ip`, `receivedAt` (ISO 8601)
+- Planned: `read` (Boolean) for unread tracking
 
 ### Backend — `backend/functions/`
 
@@ -113,63 +115,43 @@ backend/
     status/
       index.mjs   # GET /status — reads 4 SSM params, returns { api, frontend, version, lastDeploy, lastCommit }
     visitors/
-      index.mjs   # GET /visitors — returns { count } from TOTAL item
+      index.mjs   # GET /visitors — scans table, returns { count, countries: [{code,count}] sorted by count desc }
                   # POST /visitors — atomically increments TOTAL + COUNTRY#xx, returns { count }
     contact/
-      index.mjs   # POST /contact — validates body, sends HTML+text SES email, saves to DynamoDB contacts table
+      index.mjs   # POST /contact — validates, sends HTML+text SES email, saves full record to contacts table
     contacts/
-      index.mjs   # GET /contacts — scans contacts table, returns { items } sorted by id desc (newest first)
+      index.mjs   # GET /contacts — scans contacts table, returns { items } sorted by id desc
 ```
 
-Lambda runtime: `nodejs20.x`. All AWS SDK v3 clients (`@aws-sdk/client-ses`, `@aws-sdk/client-dynamodb`, `@aws-sdk/util-dynamodb`, `@aws-sdk/client-ssm`) are available in the runtime without bundling. CORS headers included inline in every Lambda (`Access-Control-Allow-Origin: *`).
+Lambda runtime: `nodejs20.x`. All `@aws-sdk/*` clients available at runtime without bundling. CORS headers in every Lambda (`Access-Control-Allow-Origin: *`).
 
 ### Live API endpoints
 
 | Method | Path | Lambda | Description |
 |---|---|---|---|
 | GET | `/status` | status | SSM params → health + lastDeploy + lastCommit |
-| GET | `/visitors` | visitors | returns `{ count }` |
-| POST | `/visitors` | visitors | increments counter (country from CloudFront header), returns `{ count }` |
-| POST | `/contact` | contact | sends SES email + saves to contacts DynamoDB table |
-| GET | `/contacts` | contacts_get | lists all contact submissions, newest first |
-
-### Contact Lambda details
-
-`backend/functions/contact/index.mjs`:
-- Validates `name`, `email`, `message` (400 if missing)
-- Reads visitor metadata: `cloudfront-viewer-country` header, `requestContext.http.sourceIp`, `user-agent` (parsed to `"Desktop · macOS · Chrome"` format)
-- Receives from frontend: `timeOnSite` (seconds on site), `timezone` (IANA), `locale` (navigator.language), `referrer` (document.referrer or `"direct"`)
-- Sends branded HTML email from `Alessandro Bezerra da Silva <CONTACT_EMAIL>`, Reply-To set to sender
-- Subject: `[Portfolio] ${name} — ${message.slice(0, 55)}…`
-- After email: writes full record to DynamoDB contacts table; DynamoDB failure is caught and logged so the email always delivers
-- Env vars: `CONTACT_EMAIL`, `CONTACTS_TABLE`
+| GET | `/visitors` | visitors | `{ count, countries: [{code,count}] }` |
+| POST | `/visitors` | visitors | increments counter, returns `{ count }` |
+| POST | `/contact` | contact | sends SES email + saves to contacts table |
+| GET | `/contacts` | contacts_get | all submissions newest-first |
 
 ### Lambda IAM permissions
 
 Single `lambda_exec` role shared by all functions:
 - `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
 - `ssm:GetParameters` on `arn:aws:ssm:*:*:parameter/portfolio/*`
-- `dynamodb:GetItem`, `dynamodb:UpdateItem` on visitors table
+- `dynamodb:GetItem`, `dynamodb:UpdateItem`, `dynamodb:Scan` on visitors table
 - `dynamodb:PutItem`, `dynamodb:Scan` on contacts table
 - `ses:SendEmail` on the SES email identity + `configuration-set/*`
 
-### Planned / next
+### Contact Lambda details
 
-**Admin dashboard improvements** — The `/admin` panel currently shows real visitor count and real contact messages. Next: replace hardcoded password with JWT auth (`POST /admin/login` Lambda reading `/portfolio/admin-password` from SSM), add visitor country breakdown endpoint, add content management (projects, experience, certifications from DynamoDB).
-
-**Server-side GitHub activity cache** — EventBridge cron (1h) Lambda fetches from GitHub API using PAT in SSM SecureString, writes to DynamoDB `github_cache` table with TTL. `GET /github/activity` serves it. Currently the frontend fetches GitHub directly with `VITE_GITHUB_TOKEN`.
-
-**Content CMS** — projects, experience, certifications migrate from `en.ts`/`pt.ts` to DynamoDB `portfolio_content` table (PK: `type`, SK: `lang`), editable from admin panel.
-
-**Resume upload** — S3 presigned URL + CloudFront invalidation on upload.
-
-### Remaining implementation order
-
-1. Admin dashboard improvements (visitor breakdown, JWT auth, content management)
-2. Server-side GitHub activity cache (replace `VITE_GITHUB_TOKEN` workaround)
-3. Migrate i18n content arrays → DynamoDB `portfolio_content` table
-4. Resume upload (S3 presigned URL)
-5. Content editing forms in admin panel
+`backend/functions/contact/index.mjs`:
+- Validates `name`, `email`, `message` (400 if missing)
+- Reads visitor metadata: `cloudfront-viewer-country` header, `requestContext.http.sourceIp`, `user-agent` parsed to `"Desktop · macOS · Chrome"` format
+- Receives from frontend: `timeOnSite` (seconds), `timezone` (IANA), `locale` (`navigator.language`), `referrer` (`document.referrer || 'direct'`)
+- Sends branded HTML email from `Alessandro Bezerra da Silva <CONTACT_EMAIL>`, Reply-To set to sender
+- After email: writes full record to DynamoDB; DynamoDB failure is caught so email always delivers
 
 ## Commands
 
@@ -180,8 +162,6 @@ npm run lint      # ESLint
 npm run preview   # serve the dist/ build locally
 ```
 
-There are no tests — Playwright is installed as a devDependency but no test files exist yet.
-
 ## Architecture
 
 ### Routing & entry point
@@ -190,103 +170,196 @@ There are no tests — Playwright is installed as a devDependency but no test fi
 - `/` → `Portfolio` (the public-facing page)
 - `/admin/*` → `AdminPage` (protected dashboard)
 
-`Portfolio.tsx` is a simple shell that composes the page sections in order: `Navbar → Hero → About → ExperienceSection → ProjectsSection → CertificationsSection → ContactSection → Footer`.
+`Portfolio.tsx` composes sections: `Navbar → Hero → About → ExperienceSection → ProjectsSection → CertificationsSection → ContactSection → Footer`.
 
 ### Internationalisation (i18n)
 
-All user-visible text lives in `src/i18n/en.ts` and `src/i18n/pt.ts`. The `Translations` interface in `src/i18n/types.ts` is the single source of truth for what both files must export. Components consume translations exclusively via `useLang()` from `src/i18n/index.tsx`, which provides a `{ lang, t, setLang }` context. The selected language is persisted to `localStorage`.
+All user-visible text lives in `src/i18n/en.ts` and `src/i18n/pt.ts`. The `Translations` interface in `src/i18n/types.ts` is the single source of truth. Components consume via `useLang()` from `src/i18n/index.tsx` (`{ lang, t, setLang }`). Language persisted to `localStorage`.
 
-**Content that is translated includes the data arrays** (`projects.items`, `showcaseItems`, `experience.items`, `certifications.items`) — these are part of the translation objects, not separate data files. `src/data/projects.ts`, `src/data/experience.ts`, and `src/data/certifications.ts` exist as standalone fallbacks/references but the live content comes from `en.ts` / `pt.ts`.
+**Content arrays** (`projects.items`, `showcaseItems`, `experience.items`, `certifications.items`) are part of the translation objects, not separate files. `src/data/projects.ts`, `src/data/experience.ts`, `src/data/certifications.ts` exist as fallbacks but the live content comes from `en.ts`/`pt.ts`.
 
 ### Theming
 
-Dark mode uses a CSS class strategy (`dark` on `<html>`). Tailwind v4 is configured in `src/index.css` with `@custom-variant dark`. The accent color scale (`accent-*`) is defined there and maps to a cyan/AWS palette — change it in one place to re-theme the whole site. `useTheme` (in `src/hooks/useTheme.ts`) syncs React state with the DOM class and `localStorage`.
+Dark mode uses CSS class strategy (`dark` on `<html>`). Tailwind v4 configured in `src/index.css` with `@custom-variant dark`. Accent color scale (`accent-*`) maps to a cyan/AWS palette. `useTheme` (`src/hooks/useTheme.ts`) syncs React state with DOM class and `localStorage`.
 
 ### Section layout pattern
 
-Every content section uses `<Section id="..." eyebrow="..." title="...">` from `src/components/ui/Section.tsx`, which wraps content in a `<Container>` and applies a Framer Motion scroll-reveal animation (`whileInView`, `once: true`). Nav anchor links (`#projects`, `#about`, etc.) rely on matching `id` props in Section.
+Every content section uses `<Section id="..." eyebrow="..." title="...">` from `src/components/ui/Section.tsx` — wraps in `<Container>` + Framer Motion scroll-reveal (`whileInView`, `once: true`). Nav anchors rely on matching `id` props.
 
 ### Expandable panels
 
-Both `GitHubPanel` and `VideoProjectCard` use the same expand/collapse pattern:
+`GitHubPanel` and `VideoProjectCard` use the same pattern:
 1. Always-visible content on top
-2. `AnimatePresence` + `motion.div` with `height: 0 → auto` for the expandable section
-3. The expand/collapse `<button>` sits **after** the `AnimatePresence` block so it always renders at the bottom of the card
+2. `AnimatePresence` + `motion.div` with `height: 0 → auto`
+3. Expand/collapse `<button>` **after** the `AnimatePresence` block
 
 ### Backend / API
 
-`src/services/api.ts` is a thin fetch wrapper pointing at `VITE_API_BASE_URL`. When the env var is unset (local dev without backend), all calls return safe fallbacks so the UI works without infrastructure.
+`src/services/api.ts` is a thin fetch wrapper. When `VITE_API_BASE_URL` is unset, all calls return safe fallbacks.
 
-Interfaces exported: `InfraStatus`, `ContactPayload`, `ContactMessage`.
+Exported interfaces: `InfraStatus`, `ContactPayload`, `ContactMessage`, `VisitorStats`.
 
-Functions exported:
-- `getInfraStatus()` — polls GET /status every 60s via `useInfraStatus` hook
+Exported functions:
+- `getInfraStatus()` — GET /status (used by `useInfraStatus`, polls every 60s)
 - `fetchVisitorCount()` — POST /visitors (increments on page load, called once from `useVisitorCount`)
-- `getVisitorCount()` — GET /visitors (read-only, used in admin panel)
+- `getVisitorStats()` — GET /visitors, returns `VisitorStats { count, countries }` (used in admin)
+- `getVisitorCount()` — wrapper around `getVisitorStats()` returning only the count
 - `sendContactMessage(payload)` — POST /contact
-- `getContacts()` — GET /contacts, returns `ContactMessage[]` sorted newest first
+- `getContacts()` — GET /contacts, returns `ContactMessage[]` sorted newest-first
 
 ### GitHub activity
 
-`useGithubActivity` in `src/hooks/useGithubActivity.ts` fetches from the public GitHub API directly from the browser. Results are cached in `localStorage` for 1 hour (key: `github_activity_cache`). `SKIP_REPOS` filters out forked/unwanted repos.
-
-All requests include `Authorization: Bearer $VITE_GITHUB_TOKEN` when the env var is set — this raises the rate limit from 60 to 5000 req/hour and prevents the 403 that happens on shared IPs. The token must have only public repository read access (fine-grained PAT, no extra permissions needed).
+`useGithubActivity` fetches from GitHub API directly in the browser, cached in `localStorage` for 1h (`github_activity_cache`). `SKIP_REPOS` filters unwanted repos. Includes `Authorization: Bearer $VITE_GITHUB_TOKEN` when set (5000 req/h vs 60).
 
 ### InfraStatusPanel
 
 `src/components/InfraStatusPanel.tsx` + `src/hooks/useInfraStatus.ts`:
-- Polls `GET /status` every 60s
-- Header shows the **round-trip response time in ms** (measured via `performance.now()` in the hook, exposed as `responseTime`)
-- Shows API status, Frontend status, and Last Commit (SHA + message, `line-clamp-2`)
-- **Last Deploy is in the Footer** — shows on the right side of the bottom row, formatted as relative time (e.g. "5m ago"). Hidden when API is unavailable.
+- Polls GET /status every 60s; header shows round-trip ms via `performance.now()`
+- Shows API status, Frontend status, Last Commit (SHA inline + message `line-clamp-2`)
+- **Last Deploy is in the Footer** (right side, relative time). Hidden when API unavailable.
 
 ### ContactSection
 
-`src/components/ContactSection.tsx`:
-- Records `arrivedAt = useRef(Date.now())` on mount
-- On submit, sends `timeOnSite` (seconds), `timezone` (`Intl.DateTimeFormat().resolvedOptions().timeZone`), `locale` (`navigator.language`), `referrer` (`document.referrer || 'direct'`) along with name/email/message
+`src/components/ContactSection.tsx` records `arrivedAt = useRef(Date.now())` on mount. On submit sends `timeOnSite`, `timezone` (`Intl.DateTimeFormat().resolvedOptions().timeZone`), `locale` (`navigator.language`), `referrer` (`document.referrer || 'direct'`).
 
-### Admin panel
+### Admin panel — current state
 
 `/admin` route (`src/components/admin/AdminPage.tsx`):
-- Client-side password check (hardcoded `"admin"`) — placeholder until real JWT flow is wired up
+- Client-side password check (hardcoded `"admin"`) — placeholder until JWT flow
 - Auth state stored in `sessionStorage` as `admin_token`
-- Tabs: Overview, Analytics, Content, Settings
+- Sidebar tabs: Analytics, Resume, Content
 
-**AnalyticsTab** (`src/components/admin/tabs/AnalyticsTab.tsx`):
-- On mount: fetches real contacts via `getContacts()` and real visitor total via `getVisitorCount()`
-- Messages table columns: Name | Email | Message | Referrer | Device | Country | Time on site | Date
-- Visitor country breakdown is currently mock data (no country breakdown endpoint yet)
+**AnalyticsTab** (`src/components/admin/tabs/AnalyticsTab.tsx`) — fully live:
+- Fetches `getVisitorStats()` (total + country breakdown) and `getContacts()` on mount
+- Summary cards: Total Visitors, Countries, Messages — all real data
+- "Visitors by Country" bar chart — real data from DynamoDB Scan; countries only appear after real CloudFront traffic (country comes from `cloudfront-viewer-country` header, absent in local dev)
+- Messages table: 5 columns (Name, Email, Message 2-line preview, Country, Date); `table-fixed` with `<colgroup>` ensures correct truncation
+- Click any row → `MessageModal`: full message with scroll, visitor metadata grid (referrer, device, country, timezone, locale, time on site, IP), formatted date footer; closes with Esc or click outside
+- Pagination: 10 per page, prev/next + page numbers with ellipsis
+
+**ResumeTab** (`src/components/admin/tabs/ResumeTab.tsx`) — UI only, upload not wired:
+- Drag-and-drop PDF upload areas for EN and PT resumes
+- "Upload & Publish" button disabled (no presigned URL endpoint yet)
+
+**ContentTab** (`src/components/admin/tabs/ContentTab.tsx`) — UI scaffolded, no backend:
+- OpenToWork toggle (reads `src/data/profile.ts`, disabled — no backend yet)
+- About text editor (disabled — no backend yet)
+- Experience, Projects, Certifications — "coming soon" placeholders
 
 ### Scroll spy
 
-`useScrollSpy` (`src/hooks/useScrollSpy.ts`) returns `[activeId, notifyNavClick]`. It listens to the `scroll` event and compares each section's `absoluteTop` (= `getBoundingClientRect().top + scrollY`) against `scrollY + offset` (currently `250`). When the user is at the bottom of the page, the last section is always forced active. **Do not use IntersectionObserver** — it breaks for long sections and ratio-based sorting is unreliable.
+`useScrollSpy` (`src/hooks/useScrollSpy.ts`) returns `[activeId, notifyNavClick]`. Listens to `scroll`, compares `absoluteTop` (`getBoundingClientRect().top + scrollY`) against `scrollY + 250`. Last section forced active at bottom. **Do not use IntersectionObserver.**
 
-`notifyNavClick(id)` must be called from every nav `<a onClick>` to immediately set the active item and suppress the spy for 1 200 ms (via `suppressUntil` ref) so smooth-scroll animation doesn't race against the highlight.
+`notifyNavClick(id)` must be called from every nav `<a onClick>` — sets active immediately and suppresses spy for 1200ms via `suppressUntil` ref.
 
-Section components must **not** have `scroll-mt-*` — `scroll-padding-top: 4rem` on `html` already handles the navbar offset. Double-applying both shifts sections too far down.
+Section components must **not** have `scroll-mt-*` — `scroll-padding-top: 4rem` on `html` already handles the offset.
 
 ### View Transitions
 
-Theme and language toggles use the View Transitions API (`document.startViewTransition`). Before calling it, set `data-vt="theme"` or `data-vt="lang"` on `<html>` — CSS in `src/index.css` uses this attribute to select the right animation:
+Theme and language toggles use `document.startViewTransition`. Set `data-vt="theme"` or `data-vt="lang"` on `<html>` before calling. CSS in `src/index.css`:
+- **Theme**: circular reveal from button origin (`--vt-x`/`--vt-y` CSS vars)
+- **Lang**: old snapshot stays (`z-index: 0`), new fades in on top (`z-index: 1`) — avoids black flash
 
-- **Theme** (`data-vt="theme"`): circular reveal from the button origin. CSS vars `--vt-x` / `--vt-y` are set before the transition.
-- **Lang** (`data-vt="lang"`): old snapshot stays (`animation: none; z-index: 0`), new fades in on top (`z-index: 1`). This avoids a black flash that would appear if the old content faded out before the new content faded in.
-
-Always use `flushSync(() => setState(...))` inside the transition callback so React commits synchronously before the browser captures the new snapshot.
+Always use `flushSync(() => setState(...))` inside the transition callback.
 
 ### Background effects
 
-`BackgroundEffects.tsx` renders a fixed full-screen layer (`z-index: -10`) with four children (in order):
+`BackgroundEffects.tsx` — fixed full-screen layer (`z-index: -10`):
+1. **Dot grid** — radial-gradient dots (28px grid), masked `linear-gradient(to right, black, transparent 18%, transparent 82%, black)` — dots visible only at left/right edges
+2. **Orb 1** — top-right, cyan, 28s drift
+3. **Orb 2** — bottom-left, violet, 34s drift
+4. **Orb 3** — centered, subtle cyan, 22s drift
+5. **Mouse glow** — fixed overlay, `--mouse-x`/`--mouse-y` CSS vars updated via `mousemove`
 
-1. **Dot grid** — `<div className="dot-grid">`: radial-gradient dots (28 px grid), masked with `linear-gradient(to right, black, transparent 18%, transparent 82%, black)` so dots appear only on the left/right sides and are hidden across the full-height center column.
-2. **Orb 1** — top-right, cyan, `animate-orb-1` (28 s drift).
-3. **Orb 2** — bottom-left, violet, `animate-orb-2` (34 s drift).
-4. **Orb 3** — centered, very subtle cyan, `animate-orb-3` (22 s drift).
-5. **Mouse glow** — fixed overlay reading `--mouse-x` / `--mouse-y` CSS vars (updated via `mousemove` listener in `useEffect`).
-
-**Critical:** the background color must be set on `body`, not `html`. Setting it on `html` creates a stacking context that hides fixed elements with negative `z-index` (the orbs and dot grid disappear). The FOUC-prevention inline `<style>` in `index.html` already targets `body`.
+**Critical:** background color must be on `body`, not `html` — setting it on `html` hides fixed elements with negative `z-index`.
 
 ### FOUC prevention
 
-`index.html` has an inline `<script>` before `</head>` that reads `localStorage('theme')` and adds `class="dark"` to `<html>` before first paint. An inline `<style>` sets `body { background: #ffffff }` / `html.dark body { background: #09090b }` so the background is correct even before the CSS bundle loads.
+`index.html` inline `<script>` reads `localStorage('theme')`, adds `class="dark"` to `<html>` before first paint. Inline `<style>` sets `body { background }` for both modes.
+
+---
+
+## Roadmap — Next features
+
+### Phase 1 · Messages tab (inbox in admin)
+
+**Goal:** separate the messages list from Analytics, add unread tracking and quick reply.
+
+**Backend changes:**
+1. Add `read` (Boolean, default false) to the contacts DynamoDB schema — new items already get it via contact Lambda; existing items treated as unread if field absent
+2. New Lambda `backend/functions/contacts-patch/index.mjs` — `PATCH /contacts/{id}` sets `read: true` using `UpdateItemCommand`
+3. Add `dynamodb:UpdateItem` on contacts table to the IAM policy
+4. Wire `PATCH /contacts/{id}` route in `api_gateway.tf`
+
+**Frontend changes:**
+1. Add `Messages` tab to `AdminDashboard.tsx` sidebar (with unread count badge)
+2. Move the messages table + modal out of `AnalyticsTab` into a new `MessagesTab.tsx`
+3. `AnalyticsTab` keeps only the 3 summary cards + country chart
+4. `MessagesTab`: on row click, marks message as read (`PATCH /contacts/{id}`) and opens modal
+5. Unread count badge: number of items where `read !== true`, shown on the sidebar nav item
+6. Modal footer: "Reply" button opens `mailto:${email}?subject=Re: [Portfolio] ...`
+7. Add `patchContact(id)` to `api.ts`
+
+**Key detail:** `GET /contacts` must include the `read` field in the returned items. Since `unmarshall` already handles it, no Lambda change needed there — just add `read` to the `ContactMessage` interface in `api.ts`.
+
+---
+
+### Phase 2 · Content CMS
+
+**Goal:** edit portfolio content (OpenToWork toggle + About text) from the admin without a code rebuild.
+
+#### Phase 2a — Settings (fast, high value)
+
+Covers the two most useful controls: OpenToWork badge visibility and About section text (EN + PT).
+
+**Backend:**
+1. New DynamoDB table `cloud-portfolio-settings-prod` (PK: `key` String, PAY_PER_REQUEST)
+   - Seed items: `{ key: "open_to_work", value: "false" }`, `{ key: "about_en", value: "<current text>" }`, `{ key: "about_pt", value: "<current text>" }`
+2. New Lambda `backend/functions/settings/index.mjs`:
+   - `GET /settings` — scans table, returns `{ [key]: value }` map
+   - `PUT /settings/{key}` — `UpdateItemCommand` sets the `value` attribute
+3. Add settings table + Lambda + IAM (`dynamodb:GetItem`, `dynamodb:Scan`, `dynamodb:UpdateItem`) in Terraform
+4. Wire `GET /settings` and `PUT /settings/{key}` in `api_gateway.tf`
+
+**Frontend:**
+1. Add `getSettings()` and `putSetting(key, value)` to `api.ts`
+2. On app load (`App.tsx`), fetch settings once and store in a `SettingsContext` (or merge into the existing `LangProvider`)
+3. `Hero.tsx` reads `openToWork` from settings context instead of `profile.ts` hardcoded value
+4. `About.tsx` reads paragraphs from settings context for the active language; falls back to `en.ts`/`pt.ts` if API unavailable
+5. `ContentTab`: wire the OpenToWork toggle and About editor to call `putSetting()` on save; show a success toast on save
+
+#### Phase 2b — Projects, Experience, Certifications (bigger, later)
+
+Covers full content management for the three main portfolio sections.
+
+**DynamoDB schema** — single table `cloud-portfolio-content-prod`:
+- PK: `type` (String) — `"projects"`, `"experience"`, `"certifications"`
+- SK: `lang` (String) — `"en"`, `"pt"`
+- Attribute: `items` (String, JSON-encoded array) — the full array matching the current `en.ts`/`pt.ts` data shape
+
+**Backend:**
+1. Add `cloud-portfolio-content-prod` table to `dynamodb.tf`
+2. New Lambda `backend/functions/content/index.mjs`:
+   - `GET /content/{type}?lang=en` — `GetItemCommand` on `{type, lang}`, returns `{ items }`
+   - `PUT /content/{type}?lang=en` — `PutItemCommand` with new `items` JSON — replaces the full array
+3. Add IAM `dynamodb:GetItem`, `dynamodb:PutItem` on content table
+4. Wire routes in `api_gateway.tf`
+
+**Frontend — data layer change:**
+- On app load, fetch `GET /content/projects?lang=en`, `GET /content/experience?lang=en`, `GET /content/certifications?lang=en` (and `pt` variants) in parallel
+- Merge into the `LangProvider` context, overriding the hardcoded arrays in `en.ts`/`pt.ts`
+- If API is unavailable, fall back silently to the hardcoded arrays (no change in behaviour)
+- Seed DynamoDB with the current `en.ts`/`pt.ts` arrays before enabling this
+
+**Admin ContentTab — editors:**
+- Projects: list of cards; add / edit / delete; each card has title, description, tags, links, image URL
+- Experience: list of entries; add / edit / delete; each has company, role, period, description bullets
+- Certifications: list; add / edit / delete; each has name, issuer, date, URL
+- Each sub-editor calls `PUT /content/{type}?lang={lang}` on save
+- Language switcher (EN / PT) at the top of the tab
+
+**Implementation order within Phase 2b:**
+1. Content table + Lambda + routes (Terraform + backend)
+2. Seed script (one-time: reads `en.ts`/`pt.ts` and writes to DynamoDB)
+3. Frontend data layer (fetch on load, fallback to static)
+4. Admin editor UI (projects first, then experience, then certifications)
