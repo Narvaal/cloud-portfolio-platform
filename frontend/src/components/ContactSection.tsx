@@ -32,6 +32,7 @@ export function ContactSection() {
         timeOnSite: Math.round((Date.now() - arrivedAt.current) / 1000),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale: navigator.language,
+        referrer: document.referrer || 'direct',
       })
       setStatus('success')
       setForm({ name: '', email: '', message: '' })
