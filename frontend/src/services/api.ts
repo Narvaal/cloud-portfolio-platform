@@ -1,10 +1,5 @@
-/**
- * Thin API client for the backend (API Gateway).
- *
- * The base URL comes from VITE_API_BASE_URL. While the backend doesn't exist
- * yet (Phases 3–5), it is simply unset and the calls below resolve to safe
- * fallbacks so the UI keeps working locally.
- */
+import type { ExperienceItem, Project, VideoProject, Certification } from '../types'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
 export interface ContactPayload {
@@ -161,6 +156,53 @@ export async function getContacts(): Promise<ContactMessage[]> {
   } catch {
     return []
   }
+}
+
+// ── Content CMS ──────────────────────────────────────────────────────────────
+
+export interface ContentAbout {
+  paragraphs: string[]
+  skills?: string[]
+}
+
+export interface ContentProjects {
+  items: Project[]
+  showcaseItems: VideoProject[]
+}
+
+type LangMap<T> = { en?: T; pt?: T }
+
+export interface RawContent {
+  about?: LangMap<ContentAbout>
+  experience?: LangMap<ExperienceItem[]>
+  projects?: LangMap<ContentProjects>
+  certifications?: LangMap<Certification[]>
+}
+
+/** Fetches all content types for both langs in one call: `{ [type]: { [lang]: data } }` */
+export async function getContent(): Promise<RawContent | null> {
+  if (!API_BASE) return null
+  try {
+    const res = await fetch(`${API_BASE}/content`)
+    if (!res.ok) return null
+    return res.json() as Promise<RawContent>
+  } catch {
+    return null
+  }
+}
+
+/** Admin — replaces one content type + lang in DynamoDB. */
+export async function putContent(
+  type: string,
+  lang: 'en' | 'pt',
+  data: unknown,
+): Promise<void> {
+  if (!API_BASE) return
+  await fetch(`${API_BASE}/content/${encodeURIComponent(type)}?lang=${lang}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
 }
 
 /** Phase 3 — sends the contact form to the backend (SES). */
