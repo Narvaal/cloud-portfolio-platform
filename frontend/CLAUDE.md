@@ -43,7 +43,7 @@ This is a **cloud-native portfolio platform** built on AWS. The frontend is a Re
 | API | API Gateway HTTP API + Lambda (Node.js 20) | **live** |
 | IaC | Terraform (`infra/`) | **live** |
 | Secrets / config | SSM Parameter Store | **live** |
-| Database | DynamoDB | **live** (visitors + contacts + settings tables) |
+| Database | DynamoDB | **live** (visitors + contacts + settings + content tables) |
 | Email | SES | **live** (contact form) |
 
 Frontend connects to the backend via `VITE_API_BASE_URL` (API Gateway invoke URL). When unset locally, all API calls return safe fallbacks so the UI works without infra.
@@ -74,7 +74,7 @@ infra/
   main.tf              # S3, CloudFront OAC, SSM params, GitHub Actions IAM user, S3 CORS config
   lambda.tf            # Lambda exec role + all Lambda functions (zipped via archive_file) + IAM policies
   api_gateway.tf       # HTTP API, $default stage, all routes + Lambda permissions
-  dynamodb.tf          # visitors + contacts + settings tables
+  dynamodb.tf          # visitors + contacts + settings + content tables
   ses.tf               # SES email identity + Lambda SES IAM policy
   outputs.tf           # CloudFront URL, API GW URL, S3 bucket, IAM keys
   terraform.tfvars.example
@@ -98,18 +98,26 @@ SSM parameters managed by Terraform (initial values), overwritten by CI on every
 **`cloud-portfolio-visitors-prod`**
 - PK: `pk` (String) — `"TOTAL"` for global count, `"COUNTRY#BR"` etc. for per-country
 - Attribute: `count` (Number) — atomically incremented with `ADD`
-- `GET /visitors` scans all items to return `{ count, countries: [{code, count}] }`
+- `GET /visitors` scans all items → `{ count, countries: [{code, count}] }`
 
 **`cloud-portfolio-contacts-prod`**
 - PK: `id` (String) — `"${Date.now()}-${randomSuffix}"` (sorts newest-first lexicographically)
 - Attributes: `name`, `email`, `message`, `referrer`, `device`, `timezone`, `locale`, `timeOnSite` (Number, seconds), `country`, `ip`, `receivedAt` (ISO 8601), `read` (Boolean)
-- `read` is absent on older items — treated as unread wherever `!m.read`
+- `read` absent on older items — treated as unread wherever `!m.read`
 
 **`cloud-portfolio-settings-prod`**
 - PK: `key` (String)
 - Attribute: `value` (String)
 - Current keys: `open_to_work` (`"true"` / `"false"`)
-- Planned keys: `about_en`, `about_pt` (for Phase 2b About editor via settings approach — or may move to content table)
+
+**`cloud-portfolio-content-prod`**
+- PK: `type` (String) — `"about"`, `"experience"`, `"projects"`, `"certifications"`
+- SK: `lang` (String) — `"en"`, `"pt"`
+- Attribute: `data` (String, JSON-encoded payload)
+- About shape: `{ paragraphs: string[], skills?: string[] }`
+- Experience shape: `ExperienceItem[]`
+- Projects shape: `{ items: Project[], showcaseItems: VideoProject[] }`
+- Certifications shape: `Certification[]`
 
 ### Backend — `backend/functions/`
 
@@ -118,7 +126,7 @@ backend/functions/
   status/
     index.mjs          # GET /status — reads 4 SSM params → { api, frontend, version, lastDeploy, lastCommit }
   visitors/
-    index.mjs          # GET /visitors — Scan table → { count, countries: [{code,count}] sorted desc }
+    index.mjs          # GET /visitors — Scan → { count, countries: [{code,count}] sorted desc }
                        # POST /visitors — atomically increments TOTAL + COUNTRY#xx → { count }
   contact/
     index.mjs          # POST /contact — validates, sends HTML+text SES email, PutItem to contacts table
@@ -130,9 +138,12 @@ backend/functions/
     index.mjs          # GET /settings — Scan settings table → { key: value } map
                        # PATCH /settings/{key} — UpdateItem sets value attribute
   resume/
-    index.mjs          # GET /resume/presign?lang=en|pt — getSignedUrl for S3 PutObject (5 min, Content-Type: application/pdf)
+    index.mjs          # GET /resume/presign?lang=en|pt — getSignedUrl for S3 PutObject (5 min expiry)
                        # POST /resume/publish — CloudFront CreateInvalidation for /resume/*
                        # CloudFront client must use region: 'us-east-1' explicitly
+  content/
+    index.mjs          # GET /content — Scan entire content table → { [type]: { [lang]: parsedData } }
+                       # PUT /content/{type}?lang=en|pt — PutItemCommand with JSON-encoded data attribute
 ```
 
 Lambda runtime: `nodejs20.x`. All `@aws-sdk/*` clients available at runtime without bundling. CORS headers in every Lambda (`Access-Control-Allow-Origin: *`).
@@ -147,10 +158,12 @@ Lambda runtime: `nodejs20.x`. All `@aws-sdk/*` clients available at runtime with
 | POST | `/contact` | contact | sends SES email + saves to contacts table |
 | GET | `/contacts` | contacts_get | all submissions newest-first, includes `read` field |
 | PATCH | `/contacts/{id}` | contacts_patch | marks message as read |
-| GET | `/settings` | settings | `{ open_to_work: "true"|"false", ... }` map |
+| GET | `/settings` | settings | `{ open_to_work: "true"\|"false", ... }` map |
 | PATCH | `/settings/{key}` | settings | updates single setting value |
-| GET | `/resume/presign` | resume | `?lang=en|pt` → `{ uploadUrl }` |
+| GET | `/resume/presign` | resume | `?lang=en\|pt` → `{ uploadUrl }` |
 | POST | `/resume/publish` | resume | CloudFront invalidation for `/resume/*` |
+| GET | `/content` | content | `{ [type]: { [lang]: data } }` for all types and both langs |
+| PUT | `/content/{type}` | content | `?lang=en\|pt` — replaces full array for that type+lang |
 
 ### Lambda IAM permissions
 
@@ -160,6 +173,7 @@ Single `lambda_exec` role shared by all functions:
 - `dynamodb:GetItem`, `dynamodb:UpdateItem`, `dynamodb:Scan` on visitors table
 - `dynamodb:PutItem`, `dynamodb:Scan`, `dynamodb:UpdateItem` on contacts table
 - `dynamodb:Scan`, `dynamodb:UpdateItem` on settings table
+- `dynamodb:Scan`, `dynamodb:PutItem` on content table
 - `s3:PutObject` on `${frontend_bucket}/resume/*`
 - `cloudfront:CreateInvalidation` on CloudFront distribution
 - `ses:SendEmail` on the SES email identity + `configuration-set/*`
@@ -186,9 +200,11 @@ npm run preview   # serve the dist/ build locally
 
 ### Routing & entry point
 
-`main.tsx` → `App.tsx` sets up `BrowserRouter` + `SettingsProvider` + `LangProvider`, then routes:
+`main.tsx` → `App.tsx` sets up `BrowserRouter` + `SettingsProvider` + `ContentProvider` + `LangProvider`, then routes:
 - `/` → `Portfolio` (the public-facing page)
 - `/admin/*` → `AdminPage` (protected dashboard)
+
+Provider order matters: `SettingsProvider` → `ContentProvider` → `LangProvider`. `LangProvider` calls `useContent()` internally, so `ContentProvider` must be its ancestor.
 
 `Portfolio.tsx` composes sections: `Navbar → Hero → About → ExperienceSection → ProjectsSection → CertificationsSection → ContactSection → Footer`.
 
@@ -196,13 +212,25 @@ npm run preview   # serve the dist/ build locally
 
 All user-visible text lives in `src/i18n/en.ts` and `src/i18n/pt.ts`. The `Translations` interface in `src/i18n/types.ts` is the single source of truth. Components consume via `useLang()` from `src/i18n/index.tsx` (`{ lang, t, setLang }`). Language persisted to `localStorage`.
 
-**Content arrays** (`projects.items`, `showcaseItems`, `experience.items`, `certifications.items`) are part of the translation objects, not separate files. `src/data/projects.ts`, `src/data/experience.ts`, `src/data/certifications.ts` exist as fallbacks but the live content comes from `en.ts`/`pt.ts`.
+**Content arrays** (`projects.items`, `showcaseItems`, `experience.items`, `certifications.items`, `about.paragraphs`, `about.skills`) start from the static `en.ts`/`pt.ts` values but are overridden at runtime by `ContentContext` data from DynamoDB. No component needs to change — the `LangProvider` merges everything into `t` transparently.
 
-**Typed content shapes** are in `src/types/index.ts`:
+**Typed content shapes** in `src/types/index.ts`:
 - `ExperienceItem` — company, role, period, location?, description, highlights[], stack[]
 - `Project` — title, description, stack[], repoUrl?, liveUrl?, featured?
 - `VideoProject` — title, subtitle?, description, year, stack[], videoUrl, aspectRatio?, liveUrl?, repoUrl?, youtubeUrl?
 - `Certification` — name, issuer, year?, credentialUrl?
+
+### Content merge flow
+
+```
+GET /content (on app load)
+  → ContentProvider stores in state + localStorage
+    → LangProvider useMemo merges into t
+      → t.about.paragraphs / t.experience.items / etc.
+        → all section components (unchanged)
+```
+
+If the API is unavailable, `content` is `null` and `t` falls back to the static `en.ts`/`pt.ts` values.
 
 ### Theming
 
@@ -221,20 +249,21 @@ Every content section uses `<Section id="..." eyebrow="..." title="...">` from `
 
 ### Video files
 
-`public/showcase/video/` — all three MP4 files are encoded with `-movflags faststart` (moov atom at byte ~32, immediately after ftyp). This is critical for CloudFront to serve range requests correctly. If replacing a video, always run:
+`public/showcase/video/` — all three MP4 files are encoded with `-movflags faststart` (moov atom at byte ~32, immediately after ftyp). **Critical for CloudFront range requests.** If replacing a video, always run:
 ```bash
 ffmpeg -i input.mp4 -c copy -movflags faststart output.mp4
 ```
+Without faststart, the browser sends a range request to the end of the file to read the moov atom (metadata), which fails on cold CloudFront edges.
 
 ### Backend / API
 
 `src/services/api.ts` is a thin fetch wrapper. When `VITE_API_BASE_URL` is unset, all calls return safe fallbacks.
 
-Exported interfaces: `InfraStatus`, `ContactPayload`, `ContactMessage`, `VisitorStats`.
+Exported interfaces: `InfraStatus`, `ContactPayload`, `ContactMessage`, `VisitorStats`, `RawContent`, `ContentAbout`, `ContentProjects`.
 
 Exported functions:
 - `getInfraStatus()` — GET /status (used by `useInfraStatus`, polls every 60s)
-- `fetchVisitorCount()` — POST /visitors (increments on page load, called once from `useVisitorCount`)
+- `fetchVisitorCount()` — POST /visitors (increments on page load, once from `useVisitorCount`)
 - `getVisitorStats()` — GET /visitors, returns `VisitorStats { count, countries }` (admin)
 - `getVisitorCount()` — wrapper around `getVisitorStats()` returning only the count
 - `sendContactMessage(payload)` — POST /contact
@@ -244,6 +273,8 @@ Exported functions:
 - `patchSetting(key, value)` — PATCH /settings/{key}
 - `getResumeUploadUrl(lang)` — GET /resume/presign?lang=en|pt → `{ uploadUrl }`
 - `publishResume()` — POST /resume/publish (CloudFront invalidation)
+- `getContent()` — GET /content, returns `RawContent | null`
+- `putContent(type, lang, data)` — PUT /content/{type}?lang=en|pt
 
 ### GitHub activity
 
@@ -258,16 +289,42 @@ Exported functions:
 
 ### SettingsContext
 
-`src/contexts/SettingsContext.tsx` — wraps the entire app (outside `LangProvider`):
+`src/contexts/SettingsContext.tsx` — wraps the entire app (outermost provider):
 - Reads `localStorage('portfolio_settings')` synchronously on mount → instant render (no flash)
 - Fetches `GET /settings` on mount → updates state + writes back to `localStorage`
 - Listens for `storage` events → syncs across open tabs in real time
 - `updateSetting(key, value)` — calls `PATCH /settings/{key}` + updates state + writes `localStorage`
 - `useSettings()` exposes `{ settings, updateSetting }`
 
-Currently managed settings: `openToWork: boolean`.
+Currently managed: `openToWork: boolean`.
 
-**How `open_to_work` flows:** `ContentTab` toggle → `updateSetting('open_to_work', 'true'|'false')` → DynamoDB PATCH → localStorage → `Hero.tsx` via `useSettings()` re-renders immediately in all open tabs.
+**How `open_to_work` flows:** `ContentTab` toggle → `updateSetting('open_to_work', 'true'|'false')` → DynamoDB PATCH → localStorage write → `storage` event → all open tabs update `Hero.tsx` via `useSettings()` immediately.
+
+### ContentContext
+
+`src/contexts/ContentContext.tsx` — wraps `LangProvider`:
+- Reads `localStorage('portfolio_content')` synchronously on mount → cached content available immediately
+- Fetches `GET /content` on mount → updates state + writes `localStorage`
+- Listens for `storage` events → syncs across tabs when admin saves content
+- `refreshContent()` — re-fetches from API; called by editors after `putContent()` so the live site updates immediately
+- `useContent()` exposes `{ content: RawContent | null, refreshContent }`
+
+Same pattern as SettingsContext: localStorage cache → instant render, API fetch → update, storage event → cross-tab sync.
+
+### LangProvider (content merge)
+
+`src/i18n/index.tsx`:
+- Calls `useContent()` internally
+- `t` is computed with `useMemo([lang, content])` — merges DynamoDB content over the static i18n arrays:
+  ```
+  t.about.paragraphs    ← content.about[lang].paragraphs    ?? en/pt.about.paragraphs
+  t.about.skills        ← content.about[lang].skills        ?? en/pt.about.skills
+  t.experience.items    ← content.experience[lang]          ?? en/pt.experience.items
+  t.projects.items      ← content.projects[lang].items      ?? en/pt.projects.items
+  t.projects.showcaseItems ← content.projects[lang].showcaseItems ?? en/pt.projects.showcaseItems
+  t.certifications.items ← content.certifications[lang]     ?? en/pt.certifications.items
+  ```
+- All section components continue reading from `t.*` with no changes.
 
 ### ContactSection
 
@@ -331,275 +388,72 @@ Always use `flushSync(() => setState(...))` inside the transition callback.
 - PDF drag-and-drop or file picker for EN and PT resumes (validates PDF + 5MB limit)
 - `handleUpload`: `getResumeUploadUrl(lang)` → PUT to S3 with `Content-Type: application/pdf` → `publishResume()` (CloudFront invalidation)
 - Animated step-by-step progress (Getting URL → Uploading → Publishing → Done)
-- Files land at `s3://<bucket>/resume/en/Alessandro_Bezerra_Java_Backend_Engineer.pdf` (hardcoded filename in Lambda)
+- Files land at `s3://<bucket>/resume/en/Alessandro_Bezerra_Java_Backend_Engineer.pdf` (filename hardcoded in Lambda)
 
 **ContentTab** (`src/components/admin/tabs/ContentTab.tsx`) — partially live:
 - `AvailabilityToggle` — fully wired; reads `settings.openToWork`, calls `updateSetting('open_to_work', ...)`, shows "Saved ✓" for 2s
-- Section tabs: About / Experience / Projects / Certifications — all show `<ComingSoonBlock>` placeholder
+- Lang switcher (EN / PT) — controls which language version of content is being edited; separate from the site's display language
+- Section tabs: About / Experience / Projects / Certifications
+- **About editor** — fully live:
+  - Paragraphs: list of `<textarea>` fields, one per paragraph; add/remove buttons
+  - Skills: one skill per line in a `<textarea>` (same list used for EN and PT)
+  - Save calls `putContent('about', lang, { paragraphs, skills })` → `refreshContent()` → live site updates immediately without deploy
+  - Editor state initializes from `ContentContext` (localStorage cache) with fallback to static `en.ts`/`pt.ts`; re-inits on lang tab switch
+- Experience, Projects, Certifications — `<ComingSoonBlock>` placeholder
 
 ---
 
-## Roadmap — Phase 2b · Content CMS
+## Roadmap — Next features
 
-**Goal:** edit About, Experience, Projects, and Certifications from the admin without a code rebuild. Changes take effect immediately on the live site without a CI/CD deploy.
+### Phase 2b (continued) · Experience, Projects, Certifications editors
 
-### Architecture overview
+The data layer is fully wired (DynamoDB table + Lambda + ContentProvider + LangProvider merge). Only the admin editor UI components remain.
 
-A new DynamoDB table (`cloud-portfolio-content-prod`) stores content as JSON blobs, keyed by `type + lang`. A single Lambda handles read (Scan) and write (PutItem). On the frontend, a new `ContentProvider` fetches all content on app load and merges it into the `LangProvider`'s translation objects — all existing content-rendering components remain unchanged.
-
-```
-Admin PUT /content/{type}?lang=en
-       ↓
-DynamoDB cloud-portfolio-content-prod
-  { pk: "experience", sk: "en", data: "[{…}]" }
-       ↓ (on next page load)
-GET /content → ContentProvider → merged into t.experience.items
-       ↓
-ExperienceSection reads t.experience.items (unchanged)
-```
-
----
-
-### Step 1 — Terraform: content table + Lambda + routes
-
-**`infra/dynamodb.tf`** — add:
-```hcl
-resource "aws_dynamodb_table" "content" {
-  name         = "${var.project_name}-content-${var.environment}"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "type"
-  range_key    = "lang"
-
-  attribute { name = "type"; type = "S" }
-  attribute { name = "lang";  type = "S" }
-
-  tags = local.tags
-}
-```
-
-**`infra/lambda.tf`** — add IAM policy + archive + Lambda resource for `content`:
-```hcl
-resource "aws_iam_role_policy" "lambda_content" {
-  name = "${var.project_name}-lambda-content-${var.environment}"
-  role = aws_iam_role.lambda_exec.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["dynamodb:Scan", "dynamodb:PutItem"]
-      Resource = aws_dynamodb_table.content.arn
-    }]
-  })
-}
-```
-
-Lambda env var: `CONTENT_TABLE = aws_dynamodb_table.content.name`
-
-**`infra/api_gateway.tf`** — add routes:
-```
-GET  /content          → content Lambda
-PUT  /content/{type}   → content Lambda  (?lang= query param)
-```
-
-Also add `PUT` to the API Gateway CORS `allow_methods`.
-
----
-
-### Step 2 — Backend: `backend/functions/content/index.mjs`
-
-```javascript
-// GET /content
-// → Scan entire table → { experience: { en: [...], pt: [...] }, projects: {...}, ... }
-// Each item: { type, lang, data } where data is a JSON string
-
-// PUT /content/{type}?lang=en
-// → PutItemCommand with { type: {S}, lang: {S}, data: {S: JSON.stringify(items)} }
-// Replaces the full array for that type+lang combination
-```
-
-CORS must include `PUT` in `Access-Control-Allow-Methods`.
-
-`pathParameters.type` from API Gateway payload 2.0. `queryStringParameters.lang` for the language.
-
----
-
-### Step 3 — Frontend: `api.ts` additions
-
-```typescript
-export interface ContentMap {
-  about?: { paragraphs: string[]; skills?: string[] }
-  experience?: ExperienceItem[]
-  projects?: { items: Project[]; showcaseItems: VideoProject[] }
-  certifications?: Certification[]
-}
-
-export interface AllContent {
-  en: ContentMap
-  pt: ContentMap
-}
-
-/** Fetches all content types for both languages in one call. */
-export async function getContent(): Promise<AllContent | null>
-
-/** Admin — replaces one content type+lang. data shape must match ContentMap[type]. */
-export async function putContent(type: string, lang: 'en' | 'pt', data: unknown): Promise<void>
-```
-
----
-
-### Step 4 — Frontend: `ContentProvider`
-
-New file `src/contexts/ContentContext.tsx`:
-
-```typescript
-// On mount: fetch GET /content
-// Provides: content: AllContent | null
-// Falls back to null if API unavailable (LangProvider uses i18n static data)
-// writeToStorage / readFromStorage similar to SettingsContext for instant render on reload
-```
-
-Wrap in `App.tsx` between `SettingsProvider` and `LangProvider`:
-```tsx
-<SettingsProvider>
-  <ContentProvider>
-    <LangProvider>
-      {children}
-    </LangProvider>
-  </ContentProvider>
-</SettingsProvider>
-```
-
----
-
-### Step 5 — Frontend: merge into `LangProvider`
-
-In `src/i18n/index.tsx`, `LangProvider` imports `useContent()` and wraps the provided `t` with a `useMemo`:
-
-```typescript
-const { content } = useContent()
-
-const t = useMemo(() => {
-  const base = lang === 'en' ? en : pt
-  if (!content) return base
-  const c = content[lang]
-  return {
-    ...base,
-    about: {
-      ...base.about,
-      paragraphs: c?.about?.paragraphs ?? base.about.paragraphs,
-      skills:     c?.about?.skills     ?? base.about.skills,
-    },
-    experience: {
-      ...base.experience,
-      items: c?.experience ?? base.experience.items,
-    },
-    projects: {
-      ...base.projects,
-      items:         c?.projects?.items         ?? base.projects.items,
-      showcaseItems: c?.projects?.showcaseItems ?? base.projects.showcaseItems,
-    },
-    certifications: {
-      ...base.certifications,
-      items: c?.certifications ?? base.certifications.items,
-    },
-  }
-}, [lang, content])
-```
-
-No change needed in any section component.
-
----
-
-### Step 6 — Admin: `ContentTab` — About editor
-
-The About section is the simplest editor. Stored in the content table as `{ type: "about", lang: "en" }` with `data: JSON.stringify({ paragraphs: string[], skills: string[] })`.
-
-**UI:**
-- Language switcher at the top of ContentTab (EN / PT), shared across all sub-editors
-- **Paragraphs**: list of `<textarea>` fields (one per paragraph), "Add paragraph" / "Remove" buttons
-- **Skills** (EN only): comma-separated tag input or a textarea, split on save
-- "Save" button — calls `putContent('about', lang, { paragraphs, skills })` → shows "Saved ✓" 2s
-
-Initial state: load from `useContent()` result, fall back to `t.about.paragraphs` / `t.about.skills`.
-
----
-
-### Step 7 — Admin: `ContentTab` — Experience editor
+#### Experience editor (step 7)
 
 Each `ExperienceItem`: company, role, period, location?, description, highlights[], stack[].
 
 **UI:**
-- List of collapsible cards (one per experience item), ordered by position
-- Collapsed view: company + role + period
-- Expanded view: full edit form
-  - Text inputs: company, role, period, location
-  - Textarea: description
-  - Repeatable list: highlights (one `<input>` per bullet, add/remove buttons)
-  - Tag input: stack (comma-separated, rendered as chips)
-- Add new experience button at the bottom
-- Delete button per card (with confirmation)
-- Up/down arrows to reorder (or drag-and-drop later)
-- "Save All" button saves the entire array: `putContent('experience', lang, items)`
+- List of collapsible cards (one per item)
+- Collapsed: company + role + period header
+- Expanded: all fields — company, role, period, location (inputs); description (textarea); highlights (repeatable list of inputs, add/remove); stack (tag input, one per line like skills)
+- Add / delete per card; up/down arrows to reorder
+- "Save All" → `putContent('experience', lang, items)` → `refreshContent()`
 
-**Language note:** company/role/period/stack are typically the same across EN/PT. Switching language swaps the description and highlights. The full object is stored separately per lang — no sharing between EN and PT.
+Language note: EN and PT versions are stored independently. Company/role/period/stack are typically identical — the user copies them. Description and highlights are translated.
 
----
+#### Certifications editor (step 8)
 
-### Step 8 — Admin: `ContentTab` — Certifications editor
-
-The simplest full editor. Each `Certification`: name, issuer, year?, credentialUrl?.
+Each `Certification`: name, issuer, year?, credentialUrl?
 
 **UI:**
-- Simple card list with inline edit (or small modal)
-- Fields: name (input), issuer (input), year (input, optional), credentialUrl (input, optional)
-- Add / delete per item
-- Reorder with up/down arrows
-- "Save All" button: `putContent('certifications', lang, items)`
-
-Language note: certifications are EN-only in practice (same names across languages). The lang switcher still calls `putContent` with the active lang for consistency; PT falls back to EN if absent.
-
----
-
-### Step 9 — Admin: `ContentTab` — Projects editor
-
-Most complex editor — two sub-sections: **Featured** (`items: Project[]`) and **Showcase** (`showcaseItems: VideoProject[]`). Both are stored under `type: "projects"`.
-
-**Sub-tab switcher:** "Featured" | "Showcase" within the Projects section.
-
-**Featured projects editor** (Project[]):
-- Card list, each card: title, description (textarea), stack (tag input), repoUrl (input, optional), liveUrl (input, optional), featured (checkbox)
+- Simple card list (simpler than experience — no nested arrays)
+- Inline edit: name, issuer, year, credentialUrl inputs per card
 - Add / delete / reorder
+- "Save All" → `putContent('certifications', lang, items)` → `refreshContent()`
 
-**Showcase projects editor** (VideoProject[]):
-- Card list, each card:
-  - title, subtitle (input, optional)
-  - year (input, e.g. `"Apr 2026"`)
-  - description (textarea — long, multi-paragraph)
-  - stack (tag input)
-  - videoUrl (input — path under `/showcase/video/`, e.g. `/showcase/video/RareLines.mp4`)
-  - aspectRatio (input, optional, default `"16 / 9"`)
-  - liveUrl, repoUrl, youtubeUrl (inputs, optional)
-- Add / delete / reorder
+Language note: certifications are language-independent in practice. The editor stores the same data under both EN and PT.
 
-**Save All** calls `putContent('projects', lang, { items, showcaseItems })`.
+#### Projects editor (step 9)
 
-**Note on video files:** videoUrl stores the path to files in `public/showcase/video/`. Adding a new video requires uploading the MP4 file to S3 separately (the Resume upload flow can be adapted for this later). The editor only manages metadata, not the video file itself.
+Two sub-sections with inner tabs: **Featured** (`items: Project[]`) and **Showcase** (`showcaseItems: VideoProject[]`).
 
----
+Featured (Project[]):
+- title, description (textarea), stack (one per line), repoUrl, liveUrl, featured (checkbox)
 
-### Implementation order
+Showcase (VideoProject[]):
+- title, subtitle, year, description (textarea — long multi-paragraph), stack, videoUrl (path under `/showcase/video/`), aspectRatio, liveUrl, repoUrl, youtubeUrl
+- Note: videoUrl stores the filename path only; uploading a new video file requires uploading the MP4 to S3 separately
 
-1. **Terraform** — content table + Lambda + routes + IAM (`dynamodb:Scan`, `dynamodb:PutItem`)
-2. **Backend** — `backend/functions/content/index.mjs` (GET Scan + PUT PutItem)
-3. **`api.ts`** — `getContent()` + `putContent()` + `AllContent`/`ContentMap` interfaces
-4. **`ContentContext.tsx`** — provider with localStorage cache + `storage` event sync
-5. **`LangProvider` merge** — `useMemo` to override i18n arrays with dynamic content
-6. **About editor** — simplest; validates the full data layer end-to-end
-7. **Certifications editor** — simple list CRUD
-8. **Experience editor** — more complex (highlights list, reorder)
-9. **Projects editor** — most complex (two sub-sections, long descriptions)
+"Save All" → `putContent('projects', lang, { items, showcaseItems })` → `refreshContent()`
 
-After step 6 (About editor working), the pattern is established — steps 7–9 repeat the same backend call and content-merge flow with different shapes.
+#### Implementation pattern (same for all three)
 
-**Seeding:** no explicit seed step needed. On first save from the admin, DynamoDB is populated. Until then, the site reads from static `en.ts`/`pt.ts`. The admin editors initialize from `useContent()` with fallback to `t.*` so the current content is always pre-filled.
+Each editor follows the About editor pattern:
+1. Initialize state from `content?.[type]?.[editorLang] ?? static_fallback`
+2. Re-init on `editorLang` change
+3. Local state for the array being edited
+4. On save: `putContent(type, editorLang, localState)` → `refreshContent()`
+5. "Save All" button with "Saved ✓" feedback
+
+No backend changes needed — the Lambda and DynamoDB table are already live.
