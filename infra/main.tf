@@ -131,6 +131,17 @@ resource "aws_s3_bucket_policy" "frontend" {
   depends_on = [aws_s3_bucket_public_access_block.frontend]
 }
 
+resource "aws_s3_bucket_cors_configuration" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  cors_rule {
+    allowed_headers = ["Content-Type", "Content-Disposition", "Cache-Control"]
+    allowed_methods = ["PUT"]
+    allowed_origins = ["*"]
+    max_age_seconds = 3000
+  }
+}
+
 # ── IAM user for GitHub Actions CI/CD ────────────────────────────────────────
 
 resource "aws_iam_user" "github_actions" {
