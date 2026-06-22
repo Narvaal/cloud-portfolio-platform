@@ -22,6 +22,8 @@ docs: update architecture notes
 chore: bump dependencies
 ```
 
+No `Co-Authored-By` trailers in commits.
+
 ## Coding Standards
 
 **Frontend:** functional components and hooks only — no class components, no `any` type.
@@ -32,38 +34,85 @@ chore: bump dependencies
 
 This is a **cloud-native portfolio platform** built on AWS. The frontend is a React SPA; the backend is fully serverless.
 
-### AWS architecture (planned/in-progress)
+### AWS architecture
 
-| Layer | Tech |
-|---|---|
-| Hosting | S3 + CloudFront |
-| API | API Gateway + Lambda (Node.js) |
-| Database | DynamoDB |
-| IaC | Terraform |
-| Secrets | SSM Parameter Store (SecureString for sensitive values) |
-| Email | SES (contact form) |
+| Layer | Tech | Status |
+|---|---|---|
+| Hosting | S3 + CloudFront | **live** |
+| CI/CD | GitHub Actions | **live** |
+| API | API Gateway HTTP API + Lambda (Node.js 20) | **live** (GET /status only) |
+| IaC | Terraform (`infra/`) | **live** |
+| Secrets / config | SSM Parameter Store | **live** (deploy params) |
+| Database | DynamoDB | planned |
+| Email | SES (contact form) | planned |
 
-Frontend connects to the backend via `VITE_API_BASE_URL` (API Gateway URL). When unset locally, all API calls fall back safely so the UI works without infra.
+Frontend connects to the backend via `VITE_API_BASE_URL` (API Gateway invoke URL). When unset locally, all API calls fall back safely so the UI works without infra.
+
+### Environment variables
+
+| Variable | Where set | Purpose |
+|---|---|---|
+| `VITE_API_BASE_URL` | GitHub secret + local `.env.production` | API Gateway base URL |
+| `VITE_GITHUB_TOKEN` | GitHub secret | Fine-grained read-only PAT — raises GitHub API rate limit from 60 to 5000 req/h |
+
+### CI/CD — `.github/workflows/deploy-frontend.yml`
+
+Triggers on push to `production` branch (or `workflow_dispatch`). Steps:
+1. `npm ci` + `npm run build` (injects `VITE_*` secrets as env vars)
+2. `aws s3 sync dist/ s3://$S3_BUCKET/` — assets with long cache, `index.html` with no-cache
+3. `aws cloudfront create-invalidation` — purges CDN cache
+4. `aws ssm put-parameter` — writes version, timestamp, commit SHA+message to `/portfolio/*`
+
+GitHub secrets required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_BASE_URL`, `VITE_GITHUB_TOKEN`.
+
+### Terraform — `infra/`
+
+```
+infra/
+  versions.tf          # provider AWS ~> 5.0
+  variables.tf         # aws_region, project_name, environment
+  main.tf              # S3, CloudFront OAC, SSM params, GitHub Actions IAM user
+  lambda.tf            # Lambda exec role + status function (zipped via archive_file)
+  api_gateway.tf       # HTTP API, $default stage, GET /status route, Lambda permission
+  outputs.tf           # CloudFront URL, API GW URL, S3 bucket, IAM keys
+  terraform.tfvars.example
+```
+
+Run order: `terraform init` → `terraform plan` → `terraform apply`. After first apply, copy outputs to GitHub secrets.
+
+SSM parameters managed by Terraform (initial values), overwritten by CI on every deploy:
+- `/portfolio/version` — full git SHA
+- `/portfolio/last-deploy` — ISO 8601 timestamp
+- `/portfolio/last-commit-sha` — 7-char short SHA
+- `/portfolio/last-commit-message` — commit subject line
+
+### Backend — `backend/`
+
+```
+backend/
+  functions/
+    status/
+      index.mjs   # GET /status — reads SSM params, returns api/frontend health + lastDeploy + lastCommit
+```
+
+Lambda runtime: `nodejs20.x`. Uses `@aws-sdk/client-ssm` (available in runtime, no bundling needed). CORS headers included inline (`Access-Control-Allow-Origin: *`).
 
 ### Planned backend features
 
-**Visitor Counter** — `POST /visitors` increments a DynamoDB atomic counter per country (country extracted from `CloudFront-Viewer-Country` header, injected by CloudFront automatically). `GET /visitors` returns total + breakdown.
+**Visitor Counter** — `POST /visitors` increments a DynamoDB atomic counter per country (country extracted from `CloudFront-Viewer-Country` header). `GET /visitors` returns total + breakdown.
 
-**Infrastructure Status** — `GET /status` reads `/portfolio/version` and `/portfolio/last-deploy` from SSM (updated by GitHub Actions on each deploy) and returns API health + frontend health. Expected response shape: `{ api: 'online'|'offline'|'degraded', frontend: 'online'|'offline'|'degraded', lastDeploy: string (ISO 8601), version: string }`. Frontend component `InfraStatusPanel` (`src/components/InfraStatusPanel.tsx`) and hook `useInfraStatus` (`src/hooks/useInfraStatus.ts`) are already implemented — polls every 60s, shows placeholder dashes when backend is unavailable. The panel sits below `GitHubPanel` in the Hero right column.
+**GitHub Activity (server-side cache)** — EventBridge cron (1h) runs `syncGithubActivity` Lambda, fetches from GitHub API using a PAT stored in `/portfolio/github-token` (SSM SecureString), writes to DynamoDB `github_cache` table with TTL. `GET /github/activity` serves the cached data. Currently the frontend fetches GitHub API directly with a `VITE_GITHUB_TOKEN` client-side workaround.
 
-**GitHub Activity (server-side cache)** — EventBridge cron (1h) runs `syncGithubActivity` Lambda, which fetches from the GitHub API using a PAT stored in `/portfolio/github-token` (SSM SecureString) and writes results to a DynamoDB `github_cache` table with TTL. `GET /github/activity` serves the cached data. Currently, the frontend fetches the GitHub API directly with a client-side localStorage cache as a temporary workaround.
+**Admin CMS** — `/admin` route (already scaffolded) will become a full CMS: edit projects, experience, certifications stored in DynamoDB `portfolio_content` table (PK: `type`, SK: `lang`), upload resume PDFs via S3 presigned URLs, view contact form submissions and visitor analytics. Auth: JWT issued by `POST /admin/login` Lambda, validated against a password in `/portfolio/admin-password` SSM. JWT secret in `/portfolio/admin-jwt-secret`.
 
-**Admin CMS** — `/admin` route (already scaffolded in the frontend) will become a full CMS: edit projects, experience, certifications stored in DynamoDB `portfolio_content` table (PK: `type`, SK: `lang`), upload resume PDFs directly to S3 via presigned URLs, view contact form submissions and visitor analytics. Auth: JWT issued by `POST /admin/login` Lambda, validated against a password in `/portfolio/admin-password` SSM. JWT secret in `/portfolio/admin-jwt-secret`.
+### Remaining implementation order
 
-### Suggested implementation order
-
-1. Migrate i18n content (`en.ts`/`pt.ts` arrays) → DynamoDB `portfolio_content` table (frontend reads via API on load)
-2. Resume upload (S3 presigned URL + CloudFront invalidation on upload)
-3. Admin auth (JWT via SSM) + `/admin` route integration
-4. Content editing forms in admin panel
-5. Visitor counter (Lambda + DynamoDB atomic counter)
-6. Infrastructure status panel
-7. Server-side GitHub activity cache (replace the current client-side fetch)
+1. Visitor counter (Lambda + DynamoDB atomic counter)
+2. Migrate i18n content (`en.ts`/`pt.ts` arrays) → DynamoDB `portfolio_content` table
+3. Resume upload (S3 presigned URL + CloudFront invalidation on upload)
+4. Admin auth (JWT via SSM) + `/admin` route integration
+5. Content editing forms in admin panel
+6. Server-side GitHub activity cache (replace the current `VITE_GITHUB_TOKEN` workaround)
 
 ## Commands
 
@@ -109,13 +158,26 @@ Both `GitHubPanel` and `VideoProjectCard` use the same expand/collapse pattern:
 
 ### Backend / API
 
-`src/services/api.ts` is a thin fetch wrapper pointing at `VITE_API_BASE_URL`. When the env var is unset (local dev without backend), all calls return safe fallbacks so the UI works without infrastructure. Backend endpoints planned:
+`src/services/api.ts` is a thin fetch wrapper pointing at `VITE_API_BASE_URL`. When the env var is unset (local dev without backend), all calls return safe fallbacks so the UI works without infrastructure. Live endpoints:
+- `GET /status` — returns `{ api, frontend, lastDeploy, version, lastCommit? }`
+
+Planned:
 - `POST /contact` — sends email via SES
 - `POST /visitors` — increments DynamoDB counter and returns the count
 
 ### GitHub activity
 
-`useGithubActivity` in `src/hooks/useGithubActivity.ts` fetches from the public GitHub API directly from the browser. Results are cached in `localStorage` for 1 hour (key: `github_activity_cache`) to avoid rate-limiting. `SKIP_REPOS` filters out forked/unwanted repos.
+`useGithubActivity` in `src/hooks/useGithubActivity.ts` fetches from the public GitHub API directly from the browser. Results are cached in `localStorage` for 1 hour (key: `github_activity_cache`). `SKIP_REPOS` filters out forked/unwanted repos.
+
+All requests include `Authorization: Bearer $VITE_GITHUB_TOKEN` when the env var is set — this raises the rate limit from 60 to 5000 req/hour and prevents the 403 that happens on shared IPs. The token must have only public repository read access (fine-grained PAT, no extra permissions needed).
+
+### InfraStatusPanel
+
+`src/components/InfraStatusPanel.tsx` + `src/hooks/useInfraStatus.ts`:
+- Polls `GET /status` every 60s
+- Header shows the **round-trip response time in ms** (measured via `performance.now()` in the hook, exposed as `responseTime`)
+- Shows API status, Frontend status, and Last Commit (SHA + message, `line-clamp-2`)
+- **Last Deploy was moved to the Footer** — shows on the right side of the bottom row, formatted as relative time (e.g. "5m ago"). Hidden when API is unavailable.
 
 ### Admin panel
 
