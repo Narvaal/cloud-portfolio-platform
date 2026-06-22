@@ -103,6 +103,28 @@ export interface ContactMessage {
   read?: boolean
 }
 
+/** Returns all settings as a `{ key: value }` string map. */
+export async function getSettings(): Promise<Record<string, string>> {
+  if (!API_BASE) return {}
+  try {
+    const res = await fetch(`${API_BASE}/settings`)
+    if (!res.ok) return {}
+    return res.json() as Promise<Record<string, string>>
+  } catch {
+    return {}
+  }
+}
+
+/** Admin — updates a single setting by key. */
+export async function patchSetting(key: string, value: string): Promise<void> {
+  if (!API_BASE) return
+  await fetch(`${API_BASE}/settings/${encodeURIComponent(key)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  })
+}
+
 /** Admin — returns a presigned S3 PUT URL for uploading a resume PDF. */
 export async function getResumeUploadUrl(lang: 'en' | 'pt'): Promise<string | null> {
   if (!API_BASE) return null

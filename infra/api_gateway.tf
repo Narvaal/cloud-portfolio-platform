@@ -91,6 +91,35 @@ resource "aws_lambda_permission" "api_gw_visitors" {
   source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
 }
 
+# ── Settings ─────────────────────────────────────────────────────────────────
+
+resource "aws_apigatewayv2_integration" "settings" {
+  api_id                 = aws_apigatewayv2_api.portfolio.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.settings.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "settings_get" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "GET /settings"
+  target    = "integrations/${aws_apigatewayv2_integration.settings.id}"
+}
+
+resource "aws_apigatewayv2_route" "settings_patch" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "PATCH /settings/{key}"
+  target    = "integrations/${aws_apigatewayv2_integration.settings.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_settings" {
+  statement_id  = "AllowAPIGatewayInvokeSettings"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.settings.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
+}
+
 # ── Resume (presigned upload + CloudFront invalidation) ──────────────────────
 
 resource "aws_apigatewayv2_integration" "resume" {
