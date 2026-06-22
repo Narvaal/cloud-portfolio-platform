@@ -74,6 +74,32 @@ resource "aws_lambda_function" "status" {
   tags             = local.tags
 }
 
+data "archive_file" "contact_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.build/contact.zip"
+  source {
+    content  = file("${path.module}/../backend/functions/contact/index.mjs")
+    filename = "index.mjs"
+  }
+}
+
+resource "aws_lambda_function" "contact" {
+  function_name    = "${var.project_name}-contact-${var.environment}"
+  filename         = data.archive_file.contact_lambda.output_path
+  source_code_hash = data.archive_file.contact_lambda.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
+  role             = aws_iam_role.lambda_exec.arn
+  timeout          = 15
+  tags             = local.tags
+
+  environment {
+    variables = {
+      CONTACT_EMAIL = var.contact_email
+    }
+  }
+}
+
 resource "aws_lambda_function" "visitors" {
   function_name    = "${var.project_name}-visitors-${var.environment}"
   filename         = data.archive_file.visitors_lambda.output_path
