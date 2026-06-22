@@ -101,12 +101,14 @@ export function InfraStatusPanel() {
               <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
                 {i.lastCommitLabel}
               </p>
-              <span className="font-mono text-[10px] text-accent-500 dark:text-accent-400">
-                {status.lastCommit.sha.slice(0, 7)}
-              </span>
-              <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
-                {status.lastCommit.message}
-              </p>
+              <div className="flex items-start gap-1.5 overflow-hidden">
+                <span className="shrink-0 font-mono text-[10px] text-accent-500 dark:text-accent-400">
+                  {status.lastCommit.sha.slice(0, 7)}
+                </span>
+                <span className="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  {status.lastCommit.message}
+                </span>
+              </div>
             </div>
           )}
         </div>
