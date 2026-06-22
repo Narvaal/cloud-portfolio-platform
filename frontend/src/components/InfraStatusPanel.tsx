@@ -38,7 +38,7 @@ function StatusRow({
 
 export function InfraStatusPanel() {
   const { t } = useLang()
-  const { status } = useInfraStatus()
+  const { status, responseTime } = useInfraStatus()
   const i = t.infra
 
   function statusText(s: ServiceStatus): string {
@@ -65,7 +65,7 @@ export function InfraStatusPanel() {
             </span>
           </div>
           <span className="font-mono text-xs text-zinc-400 dark:text-zinc-600">
-            {status?.version ?? '–'}
+            {responseTime != null ? `${responseTime}ms` : '–'}
           </span>
         </div>
 
