@@ -3,9 +3,15 @@ import { Container } from './ui/Container'
 import { GitHubIcon, LinkedInIcon } from './ui/BrandIcons'
 import { profile } from '../data/profile'
 import { useLang } from '../i18n'
+import { useInfraStatus } from '../hooks/useInfraStatus'
+
+function minutesSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+}
 
 export function Footer() {
   const { t } = useLang()
+  const { status } = useInfraStatus()
 
   return (
     <footer className="border-t border-zinc-100 dark:border-zinc-800">
@@ -55,6 +61,11 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} {profile.name.split(' ').slice(0, 2).join(' ')} · {t.footer.built}
           </p>
+          {status && (
+            <p className="font-mono">
+              {t.infra.lastDeployLabel}: {t.infra.relativeTime(minutesSince(status.lastDeploy))}
+            </p>
+          )}
         </div>
       </Container>
     </footer>
