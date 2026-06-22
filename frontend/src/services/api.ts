@@ -103,6 +103,25 @@ export interface ContactMessage {
   read?: boolean
 }
 
+/** Admin — returns a presigned S3 PUT URL for uploading a resume PDF. */
+export async function getResumeUploadUrl(lang: 'en' | 'pt'): Promise<string | null> {
+  if (!API_BASE) return null
+  try {
+    const res = await fetch(`${API_BASE}/resume/presign?lang=${lang}`)
+    if (!res.ok) return null
+    const data = (await res.json()) as { uploadUrl: string }
+    return data.uploadUrl
+  } catch {
+    return null
+  }
+}
+
+/** Admin — triggers a CloudFront invalidation for /resume/* after upload. */
+export async function publishResume(): Promise<void> {
+  if (!API_BASE) return
+  await fetch(`${API_BASE}/resume/publish`, { method: 'POST' })
+}
+
 /** Admin — marks a contact message as read. */
 export async function patchContact(id: string): Promise<void> {
   if (!API_BASE) return

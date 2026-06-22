@@ -91,6 +91,35 @@ resource "aws_lambda_permission" "api_gw_visitors" {
   source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
 }
 
+# ── Resume (presigned upload + CloudFront invalidation) ──────────────────────
+
+resource "aws_apigatewayv2_integration" "resume" {
+  api_id                 = aws_apigatewayv2_api.portfolio.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.resume.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "resume_presign" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "GET /resume/presign"
+  target    = "integrations/${aws_apigatewayv2_integration.resume.id}"
+}
+
+resource "aws_apigatewayv2_route" "resume_publish" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "POST /resume/publish"
+  target    = "integrations/${aws_apigatewayv2_integration.resume.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_resume" {
+  statement_id  = "AllowAPIGatewayInvokeResume"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.resume.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
+}
+
 # ── Contacts (admin read + mark-as-read) ─────────────────────────────────────
 
 resource "aws_apigatewayv2_integration" "contacts_get" {
