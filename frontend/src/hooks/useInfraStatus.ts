@@ -3,19 +3,21 @@ import { getInfraStatus, type InfraStatus } from '../services/api'
 
 const POLL_MS = 60_000
 
-/**
- * Phase 6 — fetches infra status on mount and re-polls every 60s.
- * Returns null until the backend exists (VITE_API_BASE_URL unset).
- */
-export function useInfraStatus(): { status: InfraStatus | null } {
+export function useInfraStatus(): { status: InfraStatus | null; responseTime: number | null } {
   const [status, setStatus] = useState<InfraStatus | null>(null)
+  const [responseTime, setResponseTime] = useState<number | null>(null)
 
   useEffect(() => {
     let active = true
 
     async function poll() {
+      const t0 = performance.now()
       const data = await getInfraStatus()
-      if (active && data) setStatus(data)
+      const elapsed = Math.round(performance.now() - t0)
+      if (active && data) {
+        setStatus(data)
+        setResponseTime(elapsed)
+      }
     }
 
     poll()
@@ -26,5 +28,5 @@ export function useInfraStatus(): { status: InfraStatus | null } {
     }
   }, [])
 
-  return { status }
+  return { status, responseTime }
 }
