@@ -200,8 +200,8 @@ export function AnalyticsTab() {
                     {msg.name}
                   </td>
                   <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">{msg.email}</td>
-                  <td className="max-w-xs px-5 py-3 text-xs text-zinc-600 dark:text-zinc-400">
-                    <span className="line-clamp-2">{msg.message}</span>
+                  <td className="w-64 max-w-[16rem] px-5 py-3 text-xs text-zinc-600 dark:text-zinc-400">
+                    <span className="line-clamp-2 overflow-hidden">{msg.message}</span>
                   </td>
                   <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500">
                     {msg.referrer && msg.referrer !== 'direct' ? msg.referrer : 'Direct'}
