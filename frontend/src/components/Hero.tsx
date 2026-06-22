@@ -8,6 +8,7 @@ import { GitHubPanel } from './GitHubPanel'
 import { InfraStatusPanel } from './InfraStatusPanel'
 import { profile } from '../data/profile'
 import { useLang } from '../i18n'
+import { useSettings } from '../contexts/SettingsContext'
 import { useVisitorCount } from '../hooks/useVisitorCount'
 import type { SocialIcon } from '../types'
 
@@ -127,6 +128,7 @@ function ScrambleText({ text, onSettled }: { text: string; onSettled?: () => voi
 export function Hero() {
   const { t } = useLang()
   const { count } = useVisitorCount()
+  const { settings } = useSettings()
   const [greetingIdx, setGreetingIdx] = useState(0)
   const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -148,7 +150,7 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            {profile.openToWork && (
+            {settings.openToWork && (
               <div className="mb-4">
                 <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 dark:border-emerald-800/60 dark:bg-emerald-950/40">
                   <span className="relative flex size-1.5">

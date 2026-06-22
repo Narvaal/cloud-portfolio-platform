@@ -126,6 +126,46 @@ data "archive_file" "contacts_patch_lambda" {
   }
 }
 
+data "archive_file" "settings_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.build/settings.zip"
+  source {
+    content  = file("${path.module}/../backend/functions/settings/index.mjs")
+    filename = "index.mjs"
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_settings" {
+  name = "${var.project_name}-lambda-settings-${var.environment}"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["dynamodb:Scan", "dynamodb:UpdateItem"]
+      Resource = aws_dynamodb_table.settings.arn
+    }]
+  })
+}
+
+resource "aws_lambda_function" "settings" {
+  function_name    = "${var.project_name}-settings-${var.environment}"
+  filename         = data.archive_file.settings_lambda.output_path
+  source_code_hash = data.archive_file.settings_lambda.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
+  role             = aws_iam_role.lambda_exec.arn
+  timeout          = 10
+  tags             = local.tags
+
+  environment {
+    variables = {
+      SETTINGS_TABLE = aws_dynamodb_table.settings.name
+    }
+  }
+}
+
 data "archive_file" "resume_lambda" {
   type        = "zip"
   output_path = "${path.module}/.build/resume.zip"
