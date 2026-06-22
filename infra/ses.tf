@@ -11,7 +11,10 @@ resource "aws_iam_role_policy" "lambda_ses_send" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["ses:SendEmail"]
-      Resource = aws_ses_email_identity.contact.arn
+      Resource = [
+        aws_ses_email_identity.contact.arn,
+        "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:configuration-set/*",
+      ]
     }]
   })
 }

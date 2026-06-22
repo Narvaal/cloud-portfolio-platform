@@ -11,6 +11,10 @@ export interface ContactPayload {
   name: string
   email: string
   message: string
+  timeOnSite?: number
+  timezone?: string
+  locale?: string
+  referrer?: string
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
