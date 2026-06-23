@@ -4,6 +4,9 @@ import { profile } from '../data/profile'
 
 interface Settings {
   openToWork: boolean
+  email: string
+  githubUrl: string
+  linkedinUrl: string
 }
 
 interface SettingsContextValue {
@@ -12,14 +15,28 @@ interface SettingsContextValue {
 }
 
 const STORAGE_KEY = 'portfolio_settings'
-const defaults: Settings = { openToWork: profile.openToWork }
+
+const defaults: Settings = {
+  openToWork: profile.openToWork,
+  email: profile.email,
+  githubUrl: profile.socials.find((s) => s.icon === 'github')?.href ?? '',
+  linkedinUrl: profile.socials.find((s) => s.icon === 'linkedin')?.href ?? '',
+}
+
+function rawToSettings(raw: Record<string, string>): Settings {
+  return {
+    openToWork: 'open_to_work' in raw ? raw['open_to_work'] === 'true' : defaults.openToWork,
+    email: raw['contact_email'] || defaults.email,
+    githubUrl: raw['github_url'] || defaults.githubUrl,
+    linkedinUrl: raw['linkedin_url'] || defaults.linkedinUrl,
+  }
+}
 
 function readFromStorage(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return defaults
-    const parsed = JSON.parse(raw) as Partial<Settings>
-    return { ...defaults, ...parsed }
+    return { ...defaults, ...(JSON.parse(raw) as Partial<Settings>) }
   } catch {
     return defaults
   }
@@ -41,21 +58,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     getSettings().then((raw) => {
-      const next: Settings = {
-        openToWork: 'open_to_work' in raw ? raw['open_to_work'] === 'true' : profile.openToWork,
-      }
+      const next = rawToSettings(raw)
       setSettings(next)
       writeToStorage(next)
     })
   }, [])
 
-  // Sync changes from other tabs (admin → portfolio)
   useEffect(() => {
     function onStorage(e: StorageEvent) {
       if (e.key !== STORAGE_KEY || !e.newValue) return
       try {
-        const parsed = JSON.parse(e.newValue) as Partial<Settings>
-        setSettings((prev) => ({ ...prev, ...parsed }))
+        setSettings((prev) => ({ ...prev, ...(JSON.parse(e.newValue!) as Partial<Settings>) }))
       } catch {}
     }
     window.addEventListener('storage', onStorage)
@@ -64,13 +77,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   async function updateSetting(key: string, value: string) {
     await patchSetting(key, value)
-    if (key === 'open_to_work') {
-      setSettings((prev) => {
-        const next = { ...prev, openToWork: value === 'true' }
-        writeToStorage(next)
-        return next
-      })
-    }
+    setSettings((prev) => {
+      let next = { ...prev }
+      if (key === 'open_to_work') next = { ...next, openToWork: value === 'true' }
+      if (key === 'contact_email') next = { ...next, email: value }
+      if (key === 'github_url') next = { ...next, githubUrl: value }
+      if (key === 'linkedin_url') next = { ...next, linkedinUrl: value }
+      writeToStorage(next)
+      return next
+    })
   }
 
   return (

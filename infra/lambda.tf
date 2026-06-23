@@ -104,6 +104,7 @@ resource "aws_lambda_function" "contact" {
     variables = {
       CONTACT_EMAIL  = var.contact_email
       CONTACTS_TABLE = aws_dynamodb_table.contacts.name
+      SETTINGS_TABLE = aws_dynamodb_table.settings.name
     }
   }
 }
@@ -143,7 +144,7 @@ resource "aws_iam_role_policy" "lambda_settings" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = ["dynamodb:Scan", "dynamodb:UpdateItem"]
+      Action   = ["dynamodb:Scan", "dynamodb:UpdateItem", "dynamodb:GetItem"]
       Resource = aws_dynamodb_table.settings.arn
     }]
   })

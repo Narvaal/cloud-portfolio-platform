@@ -18,7 +18,8 @@ export function AdminLogin({ onLogin }: Props) {
     // placeholder — will call POST /admin/login and validate JWT
     await new Promise((r) => setTimeout(r, 600))
 
-    if (password === 'admin') {
+    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin'
+    if (password === adminPassword) {
       sessionStorage.setItem('admin_token', 'placeholder')
       onLogin()
     } else {

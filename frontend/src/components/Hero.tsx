@@ -196,7 +196,11 @@ export function Hero() {
             </div>
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
-              {profile.socials.map((social) => {
+              {([
+                { label: 'GitHub', href: settings.githubUrl, icon: 'github' as SocialIcon },
+                { label: 'LinkedIn', href: settings.linkedinUrl, icon: 'linkedin' as SocialIcon },
+                { label: 'Email', href: `mailto:${settings.email}`, icon: 'mail' as SocialIcon },
+              ]).map((social) => {
                 const Icon = iconMap[social.icon]
                 return (
                   <a
