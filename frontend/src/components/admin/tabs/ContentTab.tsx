@@ -28,8 +28,10 @@ function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) 
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    const scrollY = window.scrollY
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
+    window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior })
   }, [props.value])
 
   return (
@@ -446,7 +448,7 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
                   <div className="space-y-2">
                     {item.highlights.map((h, hi) => (
                       <div key={hi} className="flex gap-2">
-                        <input
+                        <AutoTextarea
                           value={h}
                           onChange={e => updateHighlight(i, hi, e.target.value)}
                           className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
