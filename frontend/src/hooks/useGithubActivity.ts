@@ -64,59 +64,36 @@ interface RawRepo {
   html_url: string
 }
 
-interface PushEvent {
-  type: string
-  repo: { name: string }
-  created_at: string
-  payload: {
-    commits?: { sha: string; message: string }[]
-  }
+interface RawCommit {
+  sha: string
+  commit: { message: string; author: { date: string } }
 }
 
-async function fetchCommitsViaEvents(username: string): Promise<GithubCommit[]> {
+async function fetchBranchCommits(
+  username: string,
+  repoName: string,
+  branch: string,
+  count: number,
+): Promise<GithubCommit[]> {
   const res = await fetch(
-    `https://api.github.com/users/${username}/events?per_page=100`,
+    `https://api.github.com/repos/${username}/${repoName}/commits?sha=${branch}&per_page=${count}`,
     githubFetchOptions(),
   )
   if (!res.ok) return []
-  const raw: PushEvent[] = await res.json()
-  return (Array.isArray(raw) ? raw : [])
-    .filter(e => e.type === 'PushEvent' && Array.isArray(e.payload.commits))
-    .flatMap(e =>
-      (e.payload.commits ?? []).map(c => ({
-        repo: e.repo.name.split('/')[1],
-        message: c.message.split('\n')[0],
-        date: e.created_at,
-        sha: c.sha.slice(0, 7),
-      })),
-    )
-    .filter(c => !SKIP_REPOS.has(c.repo))
-    .slice(0, 6)
+  const raw = await res.json()
+  return (Array.isArray(raw) ? raw : []).map((c: RawCommit) => ({
+    repo: repoName,
+    message: c.commit.message.split('\n')[0],
+    date: c.commit.author.date,
+    sha: c.sha.slice(0, 7),
+  }))
 }
 
-async function fetchCommitsPerRepo(username: string, repos: GithubRepo[]): Promise<GithubCommit[]> {
-  const commitsByRepo = await Promise.all(
-    repos.map(async (repo) => {
-      const res = await fetch(
-        `https://api.github.com/repos/${username}/${repo.name}/commits?per_page=2`,
-        githubFetchOptions(),
-      )
-      if (!res.ok) return []
-      const raw = await res.json()
-      return (Array.isArray(raw) ? raw : []).map(
-        (c: { sha: string; commit: { message: string; author: { date: string } } }) => ({
-          repo: repo.name,
-          message: c.commit.message.split('\n')[0],
-          date: c.commit.author.date,
-          sha: c.sha.slice(0, 7),
-        }),
-      )
-    }),
-  )
-  return commitsByRepo
-    .flat()
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 6)
+// Try 'dev' branch first (most active work branch), fall back to default branch
+async function fetchRepoCommits(username: string, repoName: string, count: number): Promise<GithubCommit[]> {
+  const fromDev = await fetchBranchCommits(username, repoName, 'dev', count)
+  if (fromDev.length > 0) return fromDev
+  return fetchBranchCommits(username, repoName, 'HEAD', count)
 }
 
 export function useGithubActivity(username: string) {
@@ -146,17 +123,20 @@ export function useGithubActivity(username: string) {
             url: r.html_url,
           }))
 
-        // Try Events API first (captures all branches); fall back to per-repo commits
-        let commits = await fetchCommitsViaEvents(username)
-        if (commits.length === 0) {
-          commits = await fetchCommitsPerRepo(username, repos)
-        }
+        const commitsByRepo = await Promise.all(
+          repos.map(repo => fetchRepoCommits(username, repo.name, 3)),
+        )
+
+        const commits: GithubCommit[] = commitsByRepo
+          .flat()
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 6)
 
         const result = { commits, repos }
         writeCache(result)
         setData(result)
       } catch {
-        // silent fail — keeps whatever was in state (null or stale cache)
+        // silent fail
       } finally {
         setLoading(false)
       }
