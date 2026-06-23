@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import type { ExperienceItem } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
 import { useContent } from '../../../contexts/ContentContext'
 import { putContent } from '../../../services/api'
@@ -225,6 +226,262 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
   )
 }
 
+// ── Experience editor ─────────────────────────────────────────────────────────
+
+function newItem(): ExperienceItem {
+  return { company: '', role: '', period: '', location: '', description: '', highlights: [''], stack: [] }
+}
+
+function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
+  const { content, refreshContent } = useContent()
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [expanded, setExpanded] = useState<number | null>(0)
+
+  const fallback = editorLang === 'en' ? en.experience.items : pt.experience.items
+
+  const [items, setItems] = useState<ExperienceItem[]>(
+    () => (content?.experience?.[editorLang] as ExperienceItem[] | undefined) ?? fallback,
+  )
+
+  useEffect(() => {
+    const fromContent = content?.experience?.[editorLang] as ExperienceItem[] | undefined
+    setItems(fromContent ?? (editorLang === 'en' ? en.experience.items : pt.experience.items))
+    setExpanded(0)
+  }, [editorLang])
+
+  function updateField<K extends keyof ExperienceItem>(i: number, key: K, value: ExperienceItem[K]) {
+    setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [key]: value } : item))
+  }
+
+  function updateHighlight(i: number, hi: number, value: string) {
+    setItems(prev => prev.map((item, idx) => {
+      if (idx !== i) return item
+      const highlights = item.highlights.map((h, j) => j === hi ? value : h)
+      return { ...item, highlights }
+    }))
+  }
+
+  function addHighlight(i: number) {
+    setItems(prev => prev.map((item, idx) =>
+      idx === i ? { ...item, highlights: [...item.highlights, ''] } : item
+    ))
+  }
+
+  function removeHighlight(i: number, hi: number) {
+    setItems(prev => prev.map((item, idx) =>
+      idx === i ? { ...item, highlights: item.highlights.filter((_, j) => j !== hi) } : item
+    ))
+  }
+
+  function addItem() {
+    setItems(prev => [...prev, newItem()])
+    setExpanded(items.length)
+  }
+
+  function removeItem(i: number) {
+    setItems(prev => prev.filter((_, idx) => idx !== i))
+    setExpanded(null)
+  }
+
+  function moveItem(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= items.length) return
+    setItems(prev => {
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+    setExpanded(j)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaved(false)
+    const cleaned = items.map(item => ({
+      ...item,
+      location: item.location?.trim() || undefined,
+      highlights: item.highlights.filter(Boolean),
+      stack: typeof item.stack === 'string'
+        ? (item.stack as string).split('\n').map(s => s.trim()).filter(Boolean)
+        : item.stack,
+    }))
+    await putContent('experience', editorLang, cleaned)
+    await refreshContent()
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div>
+      <div className="space-y-3">
+        {items.map((item, i) => (
+          <div key={i} className="rounded-xl border border-zinc-200 dark:border-zinc-700">
+            {/* Card header */}
+            <div className="flex items-center gap-2 p-4">
+              <button
+                type="button"
+                onClick={() => setExpanded(expanded === i ? null : i)}
+                className="flex flex-1 items-center gap-3 text-left"
+              >
+                <ChevronDown
+                  className={`size-4 shrink-0 text-zinc-400 transition-transform ${expanded === i ? 'rotate-180' : ''}`}
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                    {item.company || <span className="italic text-zinc-400">New item</span>}
+                  </p>
+                  <p className="truncate text-xs text-zinc-400">
+                    {[item.role, item.period].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => moveItem(i, -1)}
+                  disabled={i === 0}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700"
+                >
+                  <ChevronUp className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveItem(i, 1)}
+                  disabled={i === items.length - 1}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700"
+                >
+                  <ChevronDown className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeItem(i)}
+                  className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Expanded fields */}
+            {expanded === i && (
+              <div className="space-y-4 border-t border-zinc-100 px-4 pb-4 pt-4 dark:border-zinc-700/60">
+                {/* Row: company + role */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <SectionLabel>Company</SectionLabel>
+                    <input
+                      value={item.company}
+                      onChange={e => updateField(i, 'company', e.target.value)}
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                    />
+                  </div>
+                  <div>
+                    <SectionLabel>Role</SectionLabel>
+                    <input
+                      value={item.role}
+                      onChange={e => updateField(i, 'role', e.target.value)}
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                    />
+                  </div>
+                </div>
+
+                {/* Row: period + location */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <SectionLabel>Period</SectionLabel>
+                    <input
+                      value={item.period}
+                      onChange={e => updateField(i, 'period', e.target.value)}
+                      placeholder="e.g. Jun 2021 — Sep 2024"
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                    />
+                  </div>
+                  <div>
+                    <SectionLabel>Location <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                    <input
+                      value={item.location ?? ''}
+                      onChange={e => updateField(i, 'location', e.target.value)}
+                      placeholder="e.g. São Paulo, Brazil"
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <SectionLabel>Description</SectionLabel>
+                  <textarea
+                    value={item.description}
+                    onChange={e => updateField(i, 'description', e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                  />
+                </div>
+
+                {/* Highlights */}
+                <div>
+                  <SectionLabel>Highlights</SectionLabel>
+                  <div className="space-y-2">
+                    {item.highlights.map((h, hi) => (
+                      <div key={hi} className="flex gap-2">
+                        <input
+                          value={h}
+                          onChange={e => updateHighlight(i, hi, e.target.value)}
+                          className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeHighlight(i, hi)}
+                          disabled={item.highlights.length === 1}
+                          className="shrink-0 rounded-lg px-2.5 py-2 text-xs text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-30 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addHighlight(i)}
+                    className="mt-2 text-xs font-medium text-accent-500 hover:text-accent-400"
+                  >
+                    + Add highlight
+                  </button>
+                </div>
+
+                {/* Stack */}
+                <div>
+                  <SectionLabel>Stack <span className="font-normal text-zinc-400">(one per line)</span></SectionLabel>
+                  <textarea
+                    value={Array.isArray(item.stack) ? item.stack.join('\n') : item.stack}
+                    onChange={e => updateField(i, 'stack', e.target.value.split('\n') as unknown as string[])}
+                    rows={4}
+                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={addItem}
+        className="mt-4 text-xs font-medium text-accent-500 hover:text-accent-400"
+      >
+        + Add experience
+      </button>
+
+      <div className="mt-4">
+        <SaveRow saving={saving} saved={saved} onSave={handleSave} />
+      </div>
+    </div>
+  )
+}
+
 // ── ContentTab root ───────────────────────────────────────────────────────────
 
 export function ContentTab() {
@@ -276,7 +533,7 @@ export function ContentTab() {
       </div>
 
       {active === 'about'          && <AboutEditor editorLang={editorLang} />}
-      {active === 'experience'     && <ComingSoonBlock label="Experience Editor" />}
+      {active === 'experience'     && <ExperienceEditor editorLang={editorLang} />}
       {active === 'projects'       && <ComingSoonBlock label="Projects Editor" />}
       {active === 'certifications' && <ComingSoonBlock label="Certifications Editor" />}
     </div>
