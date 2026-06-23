@@ -47,10 +47,13 @@ function writeCache(data: GithubActivity) {
 
 const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN as string | undefined
 
-function githubHeaders(): HeadersInit {
-  return GITHUB_TOKEN
-    ? { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
-    : { Accept: 'application/vnd.github+json' }
+function githubFetchOptions(): RequestInit {
+  return {
+    cache: 'no-store',
+    headers: GITHUB_TOKEN
+      ? { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+      : { Accept: 'application/vnd.github+json' },
+  }
 }
 
 interface RawRepo {
@@ -73,7 +76,7 @@ interface PushEvent {
 async function fetchCommitsViaEvents(username: string): Promise<GithubCommit[]> {
   const res = await fetch(
     `https://api.github.com/users/${username}/events?per_page=100`,
-    { headers: githubHeaders() },
+    githubFetchOptions(),
   )
   if (!res.ok) return []
   const raw: PushEvent[] = await res.json()
@@ -96,7 +99,7 @@ async function fetchCommitsPerRepo(username: string, repos: GithubRepo[]): Promi
     repos.map(async (repo) => {
       const res = await fetch(
         `https://api.github.com/repos/${username}/${repo.name}/commits?per_page=2`,
-        { headers: githubHeaders() },
+        githubFetchOptions(),
       )
       if (!res.ok) return []
       const raw = await res.json()
@@ -127,7 +130,7 @@ export function useGithubActivity(username: string) {
       try {
         const reposRes = await fetch(
           `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=public`,
-          { headers: githubHeaders() },
+          githubFetchOptions(),
         )
         if (!reposRes.ok) return
 
