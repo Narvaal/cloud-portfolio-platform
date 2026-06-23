@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import type { ExperienceItem } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
@@ -18,6 +18,30 @@ const sections: { id: Section; label: string }[] = [
 ]
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
+
+const textareaClass =
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100'
+
+function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [props.value])
+
+  return (
+    <textarea
+      {...props}
+      ref={ref}
+      rows={1}
+      className={props.className ?? textareaClass}
+      style={{ resize: 'none', overflow: 'hidden' }}
+    />
+  )
+}
 
 function SaveRow({
   saving,
@@ -179,10 +203,9 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
         <div className="space-y-3">
           {paragraphs.map((p, i) => (
             <div key={i} className="flex gap-2">
-              <textarea
+              <AutoTextarea
                 value={p}
                 onChange={(e) => updateParagraph(i, e.target.value)}
-                rows={3}
                 className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
               />
               <button
@@ -210,10 +233,9 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
           Skills{' '}
           <span className="font-normal text-zinc-400">(one per line)</span>
         </SectionLabel>
-        <textarea
+        <AutoTextarea
           value={skillsText}
           onChange={(e) => setSkillsText(e.target.value)}
-          rows={8}
           className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
         />
         <p className="mt-1 text-xs text-zinc-400">
@@ -412,11 +434,9 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
                 {/* Description */}
                 <div>
                   <SectionLabel>Description</SectionLabel>
-                  <textarea
+                  <AutoTextarea
                     value={item.description}
                     onChange={e => updateField(i, 'description', e.target.value)}
-                    rows={3}
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
                   />
                 </div>
 
@@ -454,10 +474,9 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
                 {/* Stack */}
                 <div>
                   <SectionLabel>Stack <span className="font-normal text-zinc-400">(one per line)</span></SectionLabel>
-                  <textarea
+                  <AutoTextarea
                     value={Array.isArray(item.stack) ? item.stack.join('\n') : item.stack}
                     onChange={e => updateField(i, 'stack', e.target.value.split('\n') as unknown as string[])}
-                    rows={4}
                     className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
                   />
                 </div>
