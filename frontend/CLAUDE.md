@@ -278,7 +278,20 @@ Exported functions:
 
 ### GitHub activity
 
-`useGithubActivity` fetches from GitHub API directly in the browser, cached in `localStorage` for 1h (`github_activity_cache`). `SKIP_REPOS` filters unwanted repos. Includes `Authorization: Bearer $VITE_GITHUB_TOKEN` when set (5000 req/h vs 60).
+`useGithubActivity` (`src/hooks/useGithubActivity.ts`) + `GitHubPanel` (`src/components/GitHubPanel.tsx`).
+
+**Data strategy — hybrid for freshness + breadth:**
+1. **Per-repo commits** (`GET /repos/{user}/{repo}/commits?sha=dev&per_page=3`): tries `dev` branch first, falls back to `HEAD`. Always real-time — no indexing delay.
+2. **Search API** (`GET /search/commits?q=author:{user}&sort=committer-date&order=desc&per_page=20`): captures commits across all repos and branches but has a GitHub-side indexing delay of minutes to hours.
+3. Results are merged, deduplicated by SHA, filtered for merge commits (`MERGE_MSG` regex), sorted newest-first, sliced to **3 commits**.
+
+**Repos list:** top 3 repos sorted by `updated_at`, `type=public`. With token set, `type=all` (includes private).
+
+**Cache:** `localStorage('github_activity_cache')`, TTL **5 minutes**. `cache: 'no-store'` on all fetch calls to bypass browser HTTP cache.
+
+**Display (`GitHubPanel`):** 1 commit always visible, 2 more in expandable section. Commit SHA rendered as a blue underlined link to `https://github.com/{user}/{repo}/commit/{sha}`. Repos list also in the expandable section.
+
+**Git workflow note:** always `git push origin dev` before merging to production. Pushing only merge commits to `production` creates PushEvents with empty `commits` payload in GitHub's Events API — that's why we don't use the Events API.
 
 ### InfraStatusPanel
 
