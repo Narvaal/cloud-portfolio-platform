@@ -183,6 +183,16 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
     setParagraphs((prev) => prev.filter((_, idx) => idx !== i))
   }
 
+  function moveParagraph(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= paragraphs.length) return
+    setParagraphs((prev) => {
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
+
   async function handleSave() {
     setSaving(true)
     setSaved(false)
@@ -209,14 +219,32 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
                 onChange={(e) => updateParagraph(i, e.target.value)}
                 className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
               />
-              <button
-                type="button"
-                onClick={() => removeParagraph(i)}
-                disabled={paragraphs.length === 1}
-                className="shrink-0 self-start rounded-lg px-2.5 py-2 text-xs text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-30 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-              >
-                Remove
-              </button>
+              <div className="flex shrink-0 flex-col items-center gap-0.5 self-start pt-1">
+                <button
+                  type="button"
+                  onClick={() => moveParagraph(i, -1)}
+                  disabled={i === 0}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700"
+                >
+                  <ChevronUp className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveParagraph(i, 1)}
+                  disabled={i === paragraphs.length - 1}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700"
+                >
+                  <ChevronDown className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeParagraph(i)}
+                  disabled={paragraphs.length === 1}
+                  className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-25 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
