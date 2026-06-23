@@ -86,10 +86,16 @@ export function GitHubPanel() {
               {gh.title}
             </span>
           </div>
-          <span className="flex items-center gap-1.5">
+          <a
+            href="https://github.com/Narvaal"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-zinc-400 transition-colors hover:text-accent-500 dark:hover:text-accent-400"
+          >
             <span className="size-1.5 rounded-full bg-emerald-400" />
-            <span className="font-mono text-xs text-zinc-400">Narvaal</span>
-          </span>
+            <span className="font-mono text-xs">Narvaal</span>
+            <GitHubIcon className="size-3.5" />
+          </a>
         </div>
 
         {/* Most recent commit (always visible) */}
