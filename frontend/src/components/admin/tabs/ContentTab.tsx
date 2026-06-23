@@ -325,6 +325,17 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
     ))
   }
 
+  function moveHighlight(i: number, hi: number, dir: -1 | 1) {
+    const hj = hi + dir
+    setItems(prev => prev.map((item, idx) => {
+      if (idx !== i) return item
+      if (hj < 0 || hj >= item.highlights.length) return item
+      const highlights = [...item.highlights]
+      ;[highlights[hi], highlights[hj]] = [highlights[hj], highlights[hi]]
+      return { ...item, highlights }
+    }))
+  }
+
   function addItem() {
     setItems(prev => [...prev, newItem()])
     setExpanded(items.length)
@@ -480,14 +491,32 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
                           onChange={e => updateHighlight(i, hi, e.target.value)}
                           className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
                         />
-                        <button
-                          type="button"
-                          onClick={() => removeHighlight(i, hi)}
-                          disabled={item.highlights.length === 1}
-                          className="shrink-0 rounded-lg px-2.5 py-2 text-xs text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-30 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                        >
-                          Remove
-                        </button>
+                        <div className="flex shrink-0 flex-col items-center gap-0.5 self-start pt-1">
+                          <button
+                            type="button"
+                            onClick={() => moveHighlight(i, hi, -1)}
+                            disabled={hi === 0}
+                            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700"
+                          >
+                            <ChevronUp className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveHighlight(i, hi, 1)}
+                            disabled={hi === item.highlights.length - 1}
+                            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700"
+                          >
+                            <ChevronDown className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeHighlight(i, hi)}
+                            disabled={item.highlights.length === 1}
+                            className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-25 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
