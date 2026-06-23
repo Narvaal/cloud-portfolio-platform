@@ -219,7 +219,7 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
                 onChange={(e) => updateParagraph(i, e.target.value)}
                 className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
               />
-              <div className="flex shrink-0 flex-col items-center gap-0.5 self-start pt-1">
+              <div className="flex shrink-0 items-center gap-0.5 self-start pt-1">
                 <button
                   type="button"
                   onClick={() => moveParagraph(i, -1)}
@@ -491,7 +491,7 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
                           onChange={e => updateHighlight(i, hi, e.target.value)}
                           className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
                         />
-                        <div className="flex shrink-0 flex-col items-center gap-0.5 self-start pt-1">
+                        <div className="flex shrink-0 items-center gap-0.5 self-start pt-1">
                           <button
                             type="button"
                             onClick={() => moveHighlight(i, hi, -1)}
