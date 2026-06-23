@@ -94,7 +94,6 @@ export function GitHubPanel() {
           >
             <span className="size-1.5 rounded-full bg-emerald-400" />
             <span className="font-mono text-xs">Narvaal</span>
-            <GitHubIcon className="size-3.5" />
           </a>
         </div>
 
