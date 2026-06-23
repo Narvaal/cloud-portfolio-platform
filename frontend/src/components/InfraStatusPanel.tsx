@@ -6,6 +6,15 @@ import type { InfraStatus } from '../services/api'
 
 type ServiceStatus = InfraStatus['api'] | undefined
 
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
+
 
 function StatusDot({ status }: { status: ServiceStatus }) {
   const color =
@@ -87,13 +96,25 @@ export function InfraStatusPanel() {
               <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
                 {i.lastCommitLabel}
               </p>
-              <div className="flex items-center gap-1.5 overflow-hidden">
-                <span className="shrink-0 font-mono text-[10px] text-accent-500 dark:text-accent-400">
-                  {status.lastCommit.sha.slice(0, 7)}
-                </span>
-                <span className="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  {status.lastCommit.message}
-                </span>
+              <div className="flex items-start justify-between gap-2 overflow-hidden">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <a
+                    href={`https://github.com/Narvaal/cloud-portfolio-platform/commit/${status.lastCommit.sha}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 font-mono text-[10px] text-blue-500 underline underline-offset-2 hover:text-blue-400 transition-colors"
+                  >
+                    {status.lastCommit.sha.slice(0, 7)}
+                  </a>
+                  <span className="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {status.lastCommit.message}
+                  </span>
+                </div>
+                {status.lastCommit.date && (
+                  <span className="shrink-0 font-mono text-[10px] text-zinc-400">
+                    {timeAgo(status.lastCommit.date)}
+                  </span>
+                )}
               </div>
             </div>
           )}

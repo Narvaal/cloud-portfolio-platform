@@ -59,9 +59,11 @@ jobs:
             --paths "/*"
 
       - name: Write deploy info to SSM
-        env:
-          COMMIT_MSG: ${{ github.event.head_commit.message || 'manual deploy' }}
         run: |
+          REAL_SHA=$(git log --no-merges -1 --format="%H")
+          REAL_MSG=$(git log --no-merges -1 --format="%s")
+          REAL_DATE=$(git log --no-merges -1 --format="%cI")
+
           aws ssm put-parameter --name /portfolio/version \
             --value "$GITHUB_SHA" --type String --overwrite
 
@@ -69,7 +71,10 @@ jobs:
             --value "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --type String --overwrite
 
           aws ssm put-parameter --name /portfolio/last-commit-sha \
-            --value "${GITHUB_SHA::7}" --type String --overwrite
+            --value "${REAL_SHA::7}" --type String --overwrite
 
           aws ssm put-parameter --name /portfolio/last-commit-message \
-            --value "${COMMIT_MSG}" --type String --overwrite
+            --value "${REAL_MSG}" --type String --overwrite
+
+          aws ssm put-parameter --name /portfolio/last-commit-date \
+            --value "${REAL_DATE}" --type String --overwrite

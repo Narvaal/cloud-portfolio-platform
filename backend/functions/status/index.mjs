@@ -7,6 +7,7 @@ const PARAMS = [
   '/portfolio/last-deploy',
   '/portfolio/last-commit-sha',
   '/portfolio/last-commit-message',
+  '/portfolio/last-commit-date',
 ]
 
 const CORS = {
@@ -24,6 +25,7 @@ export const handler = async () => {
 
   const sha = get('/portfolio/last-commit-sha')
   const message = get('/portfolio/last-commit-message')
+  const date = get('/portfolio/last-commit-date')
 
   return {
     statusCode: 200,
@@ -33,7 +35,7 @@ export const handler = async () => {
       frontend: 'online',
       version: get('/portfolio/version') ?? 'unknown',
       lastDeploy: get('/portfolio/last-deploy') ?? new Date().toISOString(),
-      ...(sha && message ? { lastCommit: { sha, message } } : {}),
+      ...(sha && message ? { lastCommit: { sha, message, date } } : {}),
     }),
   }
 }
