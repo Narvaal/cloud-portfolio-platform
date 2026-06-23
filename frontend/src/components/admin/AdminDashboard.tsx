@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { BarChart2, FileText, Inbox, LayoutDashboard, LogOut, Pencil } from 'lucide-react'
+import { BarChart2, FileText, Inbox, LayoutDashboard, LogOut, Pencil, Settings } from 'lucide-react'
 import { getContacts } from '../../services/api'
 import { ResumeTab } from './tabs/ResumeTab'
 import { ContentTab } from './tabs/ContentTab'
+import { ConfigTab } from './tabs/ConfigTab'
 import { AnalyticsTab } from './tabs/AnalyticsTab'
 import { MessagesTab } from './tabs/MessagesTab'
 
-type Tab = 'analytics' | 'messages' | 'resume' | 'content'
+type Tab = 'analytics' | 'messages' | 'resume' | 'content' | 'config'
 
 interface Props {
   onLogout: () => void
@@ -32,6 +33,7 @@ export function AdminDashboard({ onLogout }: Props) {
     { id: 'messages', label: 'Messages', icon: Inbox, badge: unreadCount },
     { id: 'resume', label: 'Resume', icon: FileText },
     { id: 'content', label: 'Content', icon: Pencil },
+    { id: 'config', label: 'Config', icon: Settings },
   ]
 
   return (
@@ -97,6 +99,7 @@ export function AdminDashboard({ onLogout }: Props) {
           )}
           {active === 'resume' && <ResumeTab />}
           {active === 'content' && <ContentTab />}
+          {active === 'config' && <ConfigTab />}
         </div>
       </main>
     </div>

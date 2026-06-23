@@ -3,6 +3,7 @@ import { Container } from './ui/Container'
 import { GitHubIcon, LinkedInIcon } from './ui/BrandIcons'
 import { profile } from '../data/profile'
 import { useLang } from '../i18n'
+import { useSettings } from '../contexts/SettingsContext'
 import { useInfraStatus } from '../hooks/useInfraStatus'
 
 function minutesSince(iso: string): number {
@@ -12,6 +13,7 @@ function minutesSince(iso: string): number {
 export function Footer() {
   const { t } = useLang()
   const { status } = useInfraStatus()
+  const { settings } = useSettings()
 
   return (
     <footer className="border-t border-zinc-100 dark:border-zinc-800">
@@ -29,7 +31,7 @@ export function Footer() {
 
           <div className="flex items-center gap-4">
             <a
-              href="https://github.com/Narvaal"
+              href={settings.githubUrl}
               target="_blank"
               rel="noreferrer"
               aria-label="GitHub"
@@ -38,7 +40,7 @@ export function Footer() {
               <GitHubIcon className="size-4" />
             </a>
             <a
-              href="https://www.linkedin.com/in/narvaal"
+              href={settings.linkedinUrl}
               target="_blank"
               rel="noreferrer"
               aria-label="LinkedIn"
@@ -47,7 +49,7 @@ export function Footer() {
               <LinkedInIcon className="size-4" />
             </a>
             <a
-              href={`mailto:${profile.email}`}
+              href={`mailto:${settings.email}`}
               aria-label="Email"
               className="text-zinc-400 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
             >

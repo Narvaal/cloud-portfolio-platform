@@ -1,10 +1,24 @@
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
-import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb'
+import { DynamoDBClient, PutItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb'
 
 const ses = new SESClient({})
 const dynamo = new DynamoDBClient({})
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL
+const CONTACT_EMAIL_DEFAULT = process.env.CONTACT_EMAIL
 const CONTACTS_TABLE = process.env.CONTACTS_TABLE
+const SETTINGS_TABLE = process.env.SETTINGS_TABLE
+
+async function getContactEmail() {
+  if (!SETTINGS_TABLE) return CONTACT_EMAIL_DEFAULT
+  try {
+    const res = await dynamo.send(new GetItemCommand({
+      TableName: SETTINGS_TABLE,
+      Key: { key: { S: 'contact_email' } },
+    }))
+    return res.Item?.value?.S || CONTACT_EMAIL_DEFAULT
+  } catch {
+    return CONTACT_EMAIL_DEFAULT
+  }
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -154,6 +168,8 @@ export const handler = async (event) => {
     const device  = parseDevice(event.headers?.['user-agent'])
 
     const data = { name, email, message, timeOnSite, timezone, locale, referrer, country, ip, device }
+
+    const CONTACT_EMAIL = await getContactEmail()
 
     await ses.send(new SendEmailCommand({
       Source: `Alessandro Bezerra da Silva <${CONTACT_EMAIL}>`,
