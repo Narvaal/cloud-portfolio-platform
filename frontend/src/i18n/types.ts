@@ -76,7 +76,6 @@ export interface Translations {
     statusOffline: string
     statusDegraded: string
     lastCommitLabel: string
-    latencyLabel: string
     /** Formats a duration in minutes into a human-readable relative time string. */
     relativeTime: (mins: number) => string
   }
