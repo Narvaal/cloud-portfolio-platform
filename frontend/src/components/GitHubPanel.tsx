@@ -34,7 +34,7 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-zinc-100 dark:bg-zinc-800 ${className}`} />
 }
 
-function CommitRow({ repo, sha, message, date }: { repo: string; sha: string; message: string; date: string }) {
+function CommitRow({ repo, sha, message, date, url }: { repo: string; sha: string; message: string; date: string; url: string }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
@@ -44,7 +44,15 @@ function CommitRow({ repo, sha, message, date }: { repo: string; sha: string; me
         <span className="shrink-0 font-mono text-[10px] text-zinc-400">{timeAgo(date)}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="font-mono text-[10px] text-zinc-400">{sha}</span>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={e => e.stopPropagation()}
+          className="shrink-0 font-mono text-[10px] text-zinc-400 hover:text-accent-500 dark:hover:text-accent-400 transition-colors"
+        >
+          {sha}
+        </a>
         <span className="truncate text-xs text-zinc-600 dark:text-zinc-400">{message}</span>
       </div>
     </div>

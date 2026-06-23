@@ -5,6 +5,7 @@ export interface GithubCommit {
   message: string
   date: string
   sha: string
+  url: string
 }
 
 export interface GithubRepo {
@@ -91,6 +92,7 @@ async function fetchFreshCommits(username: string, repoName: string): Promise<Gi
       message: c.commit.message.split('\n')[0],
       date: c.commit.author.date,
       sha: c.sha.slice(0, 7),
+      url: `https://github.com/${username}/${repoName}/commit/${c.sha}`,
     }))
   }
   return []
@@ -110,6 +112,7 @@ async function fetchSearchCommits(username: string): Promise<GithubCommit[]> {
       message: item.commit.message.split('\n')[0],
       date: item.commit.committer.date,
       sha: item.sha.slice(0, 7),
+      url: `https://github.com/${username}/${item.repository.name}/commit/${item.sha}`,
     }))
 }
 
