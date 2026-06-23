@@ -13,7 +13,14 @@ interface Props {
 }
 
 export function AdminDashboard({ onLogout }: Props) {
-  const [active, setActive] = useState<Tab>('analytics')
+  const [active, setActive] = useState<Tab>(
+    () => (localStorage.getItem('admin_tab') as Tab | null) ?? 'analytics',
+  )
+
+  function goTab(tab: Tab) {
+    setActive(tab)
+    localStorage.setItem('admin_tab', tab)
+  }
   const [unreadCount, setUnreadCount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -50,7 +57,7 @@ export function AdminDashboard({ onLogout }: Props) {
             {nav.map(({ id, label, icon: Icon, badge }) => (
               <li key={id}>
                 <button
-                  onClick={() => setActive(id)}
+                  onClick={() => goTab(id)}
                   className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
                     active === id
                       ? 'bg-zinc-100 font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50'
