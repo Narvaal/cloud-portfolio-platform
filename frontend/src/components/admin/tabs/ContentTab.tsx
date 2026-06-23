@@ -505,8 +505,22 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
 // ── ContentTab root ───────────────────────────────────────────────────────────
 
 export function ContentTab() {
-  const [active, setActive] = useState<Section>('about')
-  const [editorLang, setEditorLang] = useState<EditorLang>('en')
+  const [active, setActive] = useState<Section>(
+    () => (localStorage.getItem('admin_content_section') as Section | null) ?? 'about',
+  )
+  const [editorLang, setEditorLang] = useState<EditorLang>(
+    () => (localStorage.getItem('admin_content_lang') as EditorLang | null) ?? 'en',
+  )
+
+  function goSection(s: Section) {
+    setActive(s)
+    localStorage.setItem('admin_content_section', s)
+  }
+
+  function goLang(l: EditorLang) {
+    setEditorLang(l)
+    localStorage.setItem('admin_content_lang', l)
+  }
 
   return (
     <div>
@@ -523,7 +537,7 @@ export function ContentTab() {
         {(['en', 'pt'] as const).map((l) => (
           <button
             key={l}
-            onClick={() => setEditorLang(l)}
+            onClick={() => goLang(l)}
             className={`rounded-md px-3 py-1 text-xs font-semibold uppercase transition-colors ${
               editorLang === l
                 ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
@@ -540,7 +554,7 @@ export function ContentTab() {
         {sections.map((s) => (
           <button
             key={s.id}
-            onClick={() => setActive(s.id)}
+            onClick={() => goSection(s.id)}
             className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
               active === s.id
                 ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50'
