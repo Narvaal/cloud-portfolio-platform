@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion'
-import { Zap } from 'lucide-react'
 import { AWSIcon } from './ui/BrandIcons'
 import { useInfraStatus } from '../hooks/useInfraStatus'
 import { useLang } from '../i18n'
@@ -74,8 +73,7 @@ export function InfraStatusPanel() {
               {i.title}
             </span>
           </div>
-          <span className="flex items-center gap-1 font-mono text-xs text-zinc-400 dark:text-zinc-600">
-            <Zap className="size-3" />
+          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-600">
             {responseTime != null ? `${responseTime}ms` : '–'}
           </span>
         </div>
@@ -108,7 +106,7 @@ export function InfraStatusPanel() {
                   >
                     {status.lastCommit.sha.slice(0, 7)}
                   </a>
-                  <span className="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                     {status.lastCommit.message}
                   </span>
                 </div>
