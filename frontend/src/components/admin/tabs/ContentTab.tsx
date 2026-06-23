@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import type { ExperienceItem } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
@@ -22,40 +22,13 @@ const sections: { id: Section; label: string }[] = [
 const textareaClass =
   'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100'
 
-function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const ref = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-
-    // Save scrollTop of every scrollable ancestor before the height reset
-    const saved: Array<{ node: Element; top: number }> = []
-    let node: Element | null = el.parentElement
-    while (node && node !== document.documentElement) {
-      saved.push({ node, top: node.scrollTop })
-      node = node.parentElement
-    }
-    const winScrollY = window.scrollY
-
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-    el.scrollTop = 0  // cursor scrolled the internal content down during collapse — reset it
-
-    // Restore synchronously so the browser renders everything in one frame
-    for (const { node, top } of saved) node.scrollTop = top
-    if (window.scrollY !== winScrollY) {
-      window.scrollTo({ top: winScrollY, behavior: 'instant' as ScrollBehavior })
-    }
-  }, [props.value])
-
+function AutoTextarea({ className, style, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      ref={ref}
       rows={1}
-      className={props.className ?? textareaClass}
-      style={{ resize: 'none', overflow: 'hidden' }}
+      className={className ?? textareaClass}
+      style={{ ...style, resize: 'none', overflow: 'hidden', fieldSizing: 'content' } as React.CSSProperties}
     />
   )
 }
