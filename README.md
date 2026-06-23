@@ -4,7 +4,6 @@ Personal portfolio built on AWS — React SPA on CloudFront + S3, fully serverle
 
 **Live:** [portfolio.alessandro-bezerra.me](https://portfolio.alessandro-bezerra.me)
 
----
 
 ## Stack
 
@@ -14,7 +13,6 @@ Personal portfolio built on AWS — React SPA on CloudFront + S3, fully serverle
 
 **AWS:** S3, CloudFront (dual-origin: S3 + API GW), API Gateway HTTP API, Lambda, DynamoDB, SES, SSM, Route 53, ACM
 
----
 
 ## Structure
 
@@ -24,7 +22,6 @@ backend/    # Lambda functions (one per route)
 infra/      # Terraform (all resources)
 ```
 
----
 
 ## Running locally
 
@@ -36,13 +33,11 @@ npm run dev   # http://localhost:5173
 
 Without `VITE_API_BASE_URL` set, all API calls return safe fallbacks.
 
----
 
 ## Deploy
 
 Push to `production` branch → GitHub Actions builds + syncs to S3 + invalidates CloudFront.
 
----
 
 ## Author
 
