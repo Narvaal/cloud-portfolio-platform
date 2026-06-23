@@ -40,6 +40,7 @@ function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) 
 
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
+    el.scrollTop = 0  // cursor scrolled the internal content down during collapse — reset it
 
     // Restore synchronously so the browser renders everything in one frame
     for (const { node, top } of saved) node.scrollTop = top
