@@ -64,36 +64,10 @@ interface RawRepo {
   html_url: string
 }
 
-interface RawCommit {
+interface SearchCommitItem {
   sha: string
-  commit: { message: string; author: { date: string } }
-}
-
-async function fetchBranchCommits(
-  username: string,
-  repoName: string,
-  branch: string,
-  count: number,
-): Promise<GithubCommit[]> {
-  const res = await fetch(
-    `https://api.github.com/repos/${username}/${repoName}/commits?sha=${branch}&per_page=${count}`,
-    githubFetchOptions(),
-  )
-  if (!res.ok) return []
-  const raw = await res.json()
-  return (Array.isArray(raw) ? raw : []).map((c: RawCommit) => ({
-    repo: repoName,
-    message: c.commit.message.split('\n')[0],
-    date: c.commit.author.date,
-    sha: c.sha.slice(0, 7),
-  }))
-}
-
-// Try 'dev' branch first (most active work branch), fall back to default branch
-async function fetchRepoCommits(username: string, repoName: string, count: number): Promise<GithubCommit[]> {
-  const fromDev = await fetchBranchCommits(username, repoName, 'dev', count)
-  if (fromDev.length > 0) return fromDev
-  return fetchBranchCommits(username, repoName, 'HEAD', count)
+  commit: { message: string; committer: { date: string } }
+  repository: { name: string }
 }
 
 export function useGithubActivity(username: string) {
@@ -105,10 +79,19 @@ export function useGithubActivity(username: string) {
 
     async function load() {
       try {
-        const reposRes = await fetch(
-          `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=public`,
-          githubFetchOptions(),
-        )
+        const repoType = GITHUB_TOKEN ? 'all' : 'public'
+
+        const [searchRes, reposRes] = await Promise.all([
+          fetch(
+            `https://api.github.com/search/commits?q=author:${username}&sort=committer-date&order=desc&per_page=10`,
+            githubFetchOptions(),
+          ),
+          fetch(
+            `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=${repoType}`,
+            githubFetchOptions(),
+          ),
+        ])
+
         if (!reposRes.ok) return
 
         const rawRepos = await reposRes.json()
@@ -123,14 +106,21 @@ export function useGithubActivity(username: string) {
             url: r.html_url,
           }))
 
-        const commitsByRepo = await Promise.all(
-          repos.map(repo => fetchRepoCommits(username, repo.name, 3)),
-        )
+        let commits: GithubCommit[] = []
 
-        const commits: GithubCommit[] = commitsByRepo
-          .flat()
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, 6)
+        if (searchRes.ok) {
+          const searchData = await searchRes.json()
+          commits = ((searchData.items ?? []) as SearchCommitItem[])
+            .filter(item => !SKIP_REPOS.has(item.repository.name))
+            .filter(item => !item.commit.message.startsWith('Merge ') && !item.commit.message.toLowerCase().startsWith('merge:'))
+            .slice(0, 6)
+            .map(item => ({
+              repo: item.repository.name,
+              message: item.commit.message.split('\n')[0],
+              date: item.commit.committer.date,
+              sha: item.sha.slice(0, 7),
+            }))
+        }
 
         const result = { commits, repos }
         writeCache(result)
