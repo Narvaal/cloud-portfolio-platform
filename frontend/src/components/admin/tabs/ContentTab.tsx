@@ -4,7 +4,7 @@ import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import type { ExperienceItem, Project, VideoProject } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
 import { useContent } from '../../../contexts/ContentContext'
-import { putContent, getVideoList, getVideoUploadUrl, publishVideo } from '../../../services/api'
+import { putContent, getVideoList, getVideoUploadUrl, publishVideo, deleteVideo } from '../../../services/api'
 import { en } from '../../../i18n/en'
 import { pt } from '../../../i18n/pt'
 
@@ -561,6 +561,8 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
 
 // ── Video field ───────────────────────────────────────────────────────────────
 
+const ASPECT_RATIOS = ['16 / 9', '4 / 3', '1 / 1', '9 / 16', '21 / 9']
+
 function VideoField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [files, setFiles] = useState<string[]>([])
   const [loadingList, setLoadingList] = useState(true)
@@ -584,6 +586,17 @@ function VideoField({ value, onChange }: { value: string; onChange: (v: string) 
     onChange(`/showcase/video/${file.name}`)
     setStep('Done!')
     setTimeout(() => setStep(''), 1500)
+  }
+
+  async function handleDelete() {
+    if (!currentFile) return
+    if (!window.confirm(`Delete "${currentFile}" from S3? This cannot be undone.`)) return
+    setStep('Deleting…')
+    await deleteVideo(currentFile)
+    const updated = await getVideoList()
+    setFiles(updated)
+    onChange('')
+    setStep('')
   }
 
   const currentFile = value.replace('/showcase/video/', '')
@@ -610,8 +623,14 @@ function VideoField({ value, onChange }: { value: string; onChange: (v: string) 
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
       <button type="button" onClick={() => inputRef.current?.click()} disabled={!!step}
         className="shrink-0 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
-        Upload new
+        Upload
       </button>
+      {currentFile && !step && (
+        <button type="button" onClick={handleDelete}
+          className="shrink-0 rounded-lg border border-zinc-200 p-2 text-zinc-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-zinc-700 dark:hover:bg-red-900/20 dark:hover:text-red-400">
+          <Trash2 className="size-3.5" />
+        </button>
+      )}
     </div>
   )
 }
@@ -633,7 +652,10 @@ const inputClass =
 
 function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
   const { content, refreshContent } = useContent()
-  const [tab, setTab] = useState<ProjectsTab>('featured')
+  const [tab, setTab] = useState<ProjectsTab>(
+    () => (localStorage.getItem('admin_projects_tab') as ProjectsTab | null) ?? 'featured',
+  )
+  function goProjectsTab(t: ProjectsTab) { setTab(t); localStorage.setItem('admin_projects_tab', t) }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [expandedFeatured, setExpandedFeatured] = useState<number | null>(0)
@@ -749,7 +771,7 @@ function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
       {/* Sub-tabs */}
       <div className="mb-6 flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-800/50">
         {(['featured', 'showcase'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => goProjectsTab(t)}
             className={`flex-1 rounded-md py-1.5 text-xs font-medium capitalize transition-colors ${
               tab === t
                 ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50'
@@ -860,8 +882,10 @@ function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
                       <input value={item.year} onChange={e => updateShowcase(i, 'year', e.target.value)} placeholder="e.g. Apr 2026" className={inputClass} />
                     </div>
                     <div>
-                      <SectionLabel>Aspect Ratio <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
-                      <input value={item.aspectRatio ?? ''} onChange={e => updateShowcase(i, 'aspectRatio', e.target.value)} placeholder="e.g. 16 / 9" className={inputClass} />
+                      <SectionLabel>Aspect Ratio</SectionLabel>
+                      <select value={item.aspectRatio ?? '16 / 9'} onChange={e => updateShowcase(i, 'aspectRatio', e.target.value)} className={inputClass}>
+                        {ASPECT_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
                     </div>
                   </div>
                   <div>

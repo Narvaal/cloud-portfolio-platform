@@ -239,6 +239,12 @@ export async function publishVideo(): Promise<void> {
   await fetch(`${API_BASE}/video/publish`, { method: 'POST' })
 }
 
+/** Admin — deletes a video from S3. */
+export async function deleteVideo(filename: string): Promise<void> {
+  if (!API_BASE) return
+  await fetch(`${API_BASE}/video/${encodeURIComponent(filename)}`, { method: 'DELETE' })
+}
+
 /** Phase 3 — sends the contact form to the backend (SES). */
 export async function sendContactMessage(
   payload: ContactPayload,

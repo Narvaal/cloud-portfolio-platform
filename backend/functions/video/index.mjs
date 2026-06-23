@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront'
 
@@ -52,6 +52,16 @@ export const handler = async (event) => {
         Paths: { Quantity: 1, Items: ['/showcase/video/*'] },
       },
     }))
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) }
+  }
+
+  // DELETE /video/{filename}
+  if (method === 'DELETE' && path.startsWith('/video/')) {
+    const filename = decodeURIComponent(event.pathParameters?.filename ?? '')
+    if (!filename || !filename.endsWith('.mp4')) {
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'invalid filename' }) }
+    }
+    await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: `${PREFIX}${filename}` }))
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) }
   }
 

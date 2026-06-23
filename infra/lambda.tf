@@ -266,7 +266,7 @@ resource "aws_iam_role_policy" "lambda_video" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["s3:PutObject"]
+        Action   = ["s3:PutObject", "s3:DeleteObject"]
         Resource = "${aws_s3_bucket.frontend.arn}/showcase/video/*"
       },
       {
