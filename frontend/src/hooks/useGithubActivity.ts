@@ -21,7 +21,7 @@ export interface GithubActivity {
 }
 
 const CACHE_KEY = 'github_activity_cache'
-const CACHE_TTL = 60 * 60 * 1000 // 1 hour
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 const SKIP_REPOS = new Set(['build-your-own-x', 'awesome-electronics'])
 
