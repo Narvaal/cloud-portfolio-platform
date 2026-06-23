@@ -183,7 +183,7 @@ export interface RawContent {
 export async function getContent(): Promise<RawContent | null> {
   if (!API_BASE) return null
   try {
-    const res = await fetch(`${API_BASE}/content`)
+    const res = await fetch(`${API_BASE}/content`, { cache: 'no-store' })
     if (!res.ok) return null
     return res.json() as Promise<RawContent>
   } catch {
