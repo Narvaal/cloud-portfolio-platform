@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
 import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
-import type { ExperienceItem, Project, VideoProject } from '../../../types'
+import type { ExperienceItem, Project, VideoProject, Certification } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
 import { useContent } from '../../../contexts/ContentContext'
 import { putContent, getVideoList, getVideoUploadUrl, publishVideo, deleteVideo } from '../../../services/api'
@@ -81,14 +81,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ComingSoonBlock({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-200 py-16 dark:border-zinc-700">
-      <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">{label}</span>
-      <p className="text-sm text-zinc-400">Editor coming soon</p>
-    </div>
-  )
-}
 
 // ── Open to Work toggle ───────────────────────────────────────────────────────
 
@@ -936,6 +928,119 @@ function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
   )
 }
 
+// ── Certifications editor ─────────────────────────────────────────────────────
+
+function newCert(): Certification {
+  return { name: '', issuer: '', year: '', credentialUrl: '' }
+}
+
+function CertificationsEditor({ editorLang }: { editorLang: EditorLang }) {
+  const { content, refreshContent } = useContent()
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const fallback = editorLang === 'en' ? en.certifications.items : pt.certifications.items
+
+  const [items, setItems] = useState<Certification[]>(
+    () => (content?.certifications?.[editorLang] as Certification[] | undefined) ?? fallback,
+  )
+
+  useEffect(() => {
+    const fromContent = content?.certifications?.[editorLang] as Certification[] | undefined
+    setItems(fromContent ?? (editorLang === 'en' ? en.certifications.items : pt.certifications.items))
+  }, [editorLang])
+
+  function update<K extends keyof Certification>(i: number, key: K, value: Certification[K]) {
+    setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [key]: value } : item))
+  }
+
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= items.length) return
+    setItems(prev => { const n = [...prev]; [n[i], n[j]] = [n[j], n[i]]; return n })
+  }
+
+  function remove(i: number) {
+    setItems(prev => prev.filter((_, idx) => idx !== i))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaved(false)
+    const cleaned = items.map(item => ({
+      name: item.name.trim(),
+      issuer: item.issuer.trim(),
+      year: item.year?.trim() || undefined,
+      credentialUrl: item.credentialUrl?.trim() || undefined,
+    }))
+    await putContent('certifications', editorLang, cleaned)
+    await refreshContent()
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div>
+      <div className="space-y-3">
+        {items.map((item, i) => (
+          <div key={i} className="rounded-xl border border-zinc-200 dark:border-zinc-700">
+            {/* Header with reorder + delete */}
+            <div className="flex items-center gap-2 px-4 py-3">
+              <p className="flex-1 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                {item.name || <span className="italic text-zinc-400">New certification</span>}
+              </p>
+              <div className="flex shrink-0 items-center gap-1">
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700">
+                  <ChevronUp className="size-3.5" />
+                </button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === items.length - 1}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700">
+                  <ChevronDown className="size-3.5" />
+                </button>
+                <button type="button" onClick={() => remove(i)}
+                  className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400">
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Fields */}
+            <div className="grid grid-cols-2 gap-3 border-t border-zinc-100 px-4 pb-4 pt-3 dark:border-zinc-700/60">
+              <div>
+                <SectionLabel>Name</SectionLabel>
+                <input value={item.name} onChange={e => update(i, 'name', e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <SectionLabel>Issuer</SectionLabel>
+                <input value={item.issuer} onChange={e => update(i, 'issuer', e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <SectionLabel>Year <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                <input value={item.year ?? ''} onChange={e => update(i, 'year', e.target.value)} placeholder="e.g. Jun 2025" className={inputClass} />
+              </div>
+              <div>
+                <SectionLabel>Credential URL <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                <input value={item.credentialUrl ?? ''} onChange={e => update(i, 'credentialUrl', e.target.value)} className={inputClass} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button type="button" onClick={() => setItems(p => [...p, newCert()])}
+        className="mt-4 text-xs font-medium text-accent-500 hover:text-accent-400">
+        + Add certification
+      </button>
+
+      <div className="mt-4">
+        <SaveRow saving={saving} saved={saved} onSave={handleSave} />
+      </div>
+    </div>
+  )
+}
+
 // ── ContentTab root ───────────────────────────────────────────────────────────
 
 export function ContentTab() {
@@ -1003,7 +1108,7 @@ export function ContentTab() {
       {active === 'about'          && <AboutEditor editorLang={editorLang} />}
       {active === 'experience'     && <ExperienceEditor editorLang={editorLang} />}
       {active === 'projects'       && <ProjectsEditor editorLang={editorLang} />}
-      {active === 'certifications' && <ComingSoonBlock label="Certifications Editor" />}
+      {active === 'certifications' && <CertificationsEditor editorLang={editorLang} />}
     </div>
   )
 }
