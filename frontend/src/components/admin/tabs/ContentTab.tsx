@@ -4,7 +4,7 @@ import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import type { ExperienceItem, Project, VideoProject } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
 import { useContent } from '../../../contexts/ContentContext'
-import { putContent } from '../../../services/api'
+import { putContent, getVideoList, getVideoUploadUrl, publishVideo } from '../../../services/api'
 import { en } from '../../../i18n/en'
 import { pt } from '../../../i18n/pt'
 
@@ -559,6 +559,63 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
   )
 }
 
+// ── Video field ───────────────────────────────────────────────────────────────
+
+function VideoField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [files, setFiles] = useState<string[]>([])
+  const [loadingList, setLoadingList] = useState(true)
+  const [step, setStep] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    getVideoList().then(f => { setFiles(f); setLoadingList(false) })
+  }, [])
+
+  async function handleFile(file: File) {
+    setStep('Getting URL…')
+    const url = await getVideoUploadUrl(file.name)
+    if (!url) { setStep(''); return }
+    setStep('Uploading…')
+    await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': 'video/mp4' } })
+    setStep('Publishing…')
+    await publishVideo()
+    const updated = await getVideoList()
+    setFiles(updated)
+    onChange(`/showcase/video/${file.name}`)
+    setStep('Done!')
+    setTimeout(() => setStep(''), 1500)
+  }
+
+  const currentFile = value.replace('/showcase/video/', '')
+
+  return (
+    <div className="flex gap-2">
+      {step ? (
+        <div className="flex flex-1 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800/60">
+          {step !== 'Done!' && <span className="size-3 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />}
+          <span className="text-zinc-500">{step}</span>
+        </div>
+      ) : (
+        <select
+          value={currentFile}
+          onChange={e => onChange(e.target.value ? `/showcase/video/${e.target.value}` : '')}
+          disabled={loadingList}
+          className={`flex-1 ${inputClass}`}
+        >
+          <option value="">{loadingList ? 'Loading…' : '— select video —'}</option>
+          {files.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+      )}
+      <input ref={inputRef} type="file" accept="video/mp4" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={!!step}
+        className="shrink-0 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
+        Upload new
+      </button>
+    </div>
+  )
+}
+
 // ── Projects editor ───────────────────────────────────────────────────────────
 
 type ProjectsTab = 'featured' | 'showcase'
@@ -820,8 +877,8 @@ function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
                     />
                   </div>
                   <div>
-                    <SectionLabel>Video URL <span className="font-normal text-zinc-400">(path under /showcase/video/)</span></SectionLabel>
-                    <input value={item.videoUrl} onChange={e => updateShowcase(i, 'videoUrl', e.target.value)} placeholder="e.g. /showcase/video/MyProject.mp4" className={inputClass} />
+                    <SectionLabel>Video</SectionLabel>
+                    <VideoField value={item.videoUrl} onChange={v => updateShowcase(i, 'videoUrl', v)} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
