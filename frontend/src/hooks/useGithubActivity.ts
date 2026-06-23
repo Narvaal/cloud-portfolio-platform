@@ -53,13 +53,67 @@ function githubHeaders(): HeadersInit {
     : { Accept: 'application/vnd.github+json' }
 }
 
-interface GithubEvent {
+interface RawRepo {
+  name: string
+  description: string | null
+  language: string | null
+  stargazers_count: number
+  html_url: string
+}
+
+interface PushEvent {
   type: string
   repo: { name: string }
   created_at: string
   payload: {
     commits?: { sha: string; message: string }[]
   }
+}
+
+async function fetchCommitsViaEvents(username: string): Promise<GithubCommit[]> {
+  const res = await fetch(
+    `https://api.github.com/users/${username}/events?per_page=100`,
+    { headers: githubHeaders() },
+  )
+  if (!res.ok) return []
+  const raw: PushEvent[] = await res.json()
+  return (Array.isArray(raw) ? raw : [])
+    .filter(e => e.type === 'PushEvent' && Array.isArray(e.payload.commits))
+    .flatMap(e =>
+      (e.payload.commits ?? []).map(c => ({
+        repo: e.repo.name.split('/')[1],
+        message: c.message.split('\n')[0],
+        date: e.created_at,
+        sha: c.sha.slice(0, 7),
+      })),
+    )
+    .filter(c => !SKIP_REPOS.has(c.repo))
+    .slice(0, 6)
+}
+
+async function fetchCommitsPerRepo(username: string, repos: GithubRepo[]): Promise<GithubCommit[]> {
+  const commitsByRepo = await Promise.all(
+    repos.map(async (repo) => {
+      const res = await fetch(
+        `https://api.github.com/repos/${username}/${repo.name}/commits?per_page=2`,
+        { headers: githubHeaders() },
+      )
+      if (!res.ok) return []
+      const raw = await res.json()
+      return (Array.isArray(raw) ? raw : []).map(
+        (c: { sha: string; commit: { message: string; author: { date: string } } }) => ({
+          repo: repo.name,
+          message: c.commit.message.split('\n')[0],
+          date: c.commit.author.date,
+          sha: c.sha.slice(0, 7),
+        }),
+      )
+    }),
+  )
+  return commitsByRepo
+    .flat()
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 6)
 }
 
 export function useGithubActivity(username: string) {
@@ -71,39 +125,17 @@ export function useGithubActivity(username: string) {
 
     async function load() {
       try {
-        const [eventsRes, reposRes] = await Promise.all([
-          fetch(
-            `https://api.github.com/users/${username}/events?per_page=100`,
-            { headers: githubHeaders() },
-          ),
-          fetch(
-            `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=public`,
-            { headers: githubHeaders() },
-          ),
-        ])
+        const reposRes = await fetch(
+          `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=public`,
+          { headers: githubHeaders() },
+        )
+        if (!reposRes.ok) return
 
-        if (!eventsRes.ok || !reposRes.ok) return
-
-        const rawEvents: GithubEvent[] = await eventsRes.json()
         const rawRepos = await reposRes.json()
-
-        const commits: GithubCommit[] = (Array.isArray(rawEvents) ? rawEvents : [])
-          .filter(e => e.type === 'PushEvent' && Array.isArray(e.payload.commits))
-          .flatMap(e =>
-            (e.payload.commits ?? []).map(c => ({
-              repo: e.repo.name.split('/')[1],
-              message: c.message.split('\n')[0],
-              date: e.created_at,
-              sha: c.sha.slice(0, 7),
-            })),
-          )
-          .filter(c => !SKIP_REPOS.has(c.repo))
-          .slice(0, 6)
-
         const repos: GithubRepo[] = (Array.isArray(rawRepos) ? rawRepos : [])
-          .filter((r: { name: string }) => !SKIP_REPOS.has(r.name))
+          .filter((r: RawRepo) => !SKIP_REPOS.has(r.name))
           .slice(0, 4)
-          .map((r: { name: string; description: string | null; language: string | null; stargazers_count: number; html_url: string }) => ({
+          .map((r: RawRepo) => ({
             name: r.name,
             description: r.description,
             language: r.language,
@@ -111,11 +143,17 @@ export function useGithubActivity(username: string) {
             url: r.html_url,
           }))
 
+        // Try Events API first (captures all branches); fall back to per-repo commits
+        let commits = await fetchCommitsViaEvents(username)
+        if (commits.length === 0) {
+          commits = await fetchCommitsPerRepo(username, repos)
+        }
+
         const result = { commits, repos }
         writeCache(result)
         setData(result)
       } catch {
-        // silent fail
+        // silent fail — keeps whatever was in state (null or stale cache)
       } finally {
         setLoading(false)
       }
