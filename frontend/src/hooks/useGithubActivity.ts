@@ -53,21 +53,52 @@ function githubHeaders(): HeadersInit {
     : { Accept: 'application/vnd.github+json' }
 }
 
+interface GithubEvent {
+  type: string
+  repo: { name: string }
+  created_at: string
+  payload: {
+    commits?: { sha: string; message: string }[]
+  }
+}
+
 export function useGithubActivity(username: string) {
   const [data, setData] = useState<GithubActivity | null>(() => readCache())
   const [loading, setLoading] = useState(() => readCache() === null)
 
   useEffect(() => {
-    if (readCache()) return // still fresh, skip fetch
+    if (readCache()) return
 
     async function load() {
       try {
-        const reposRes = await fetch(
-          `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=public`,
-          { headers: githubHeaders() },
-        )
-        if (!reposRes.ok) return // rate limited or error — keep showing cached/empty
+        const [eventsRes, reposRes] = await Promise.all([
+          fetch(
+            `https://api.github.com/users/${username}/events?per_page=100`,
+            { headers: githubHeaders() },
+          ),
+          fetch(
+            `https://api.github.com/users/${username}/repos?sort=updated&per_page=8&type=public`,
+            { headers: githubHeaders() },
+          ),
+        ])
+
+        if (!eventsRes.ok || !reposRes.ok) return
+
+        const rawEvents: GithubEvent[] = await eventsRes.json()
         const rawRepos = await reposRes.json()
+
+        const commits: GithubCommit[] = (Array.isArray(rawEvents) ? rawEvents : [])
+          .filter(e => e.type === 'PushEvent' && Array.isArray(e.payload.commits))
+          .flatMap(e =>
+            (e.payload.commits ?? []).map(c => ({
+              repo: e.repo.name.split('/')[1],
+              message: c.message.split('\n')[0],
+              date: e.created_at,
+              sha: c.sha.slice(0, 7),
+            })),
+          )
+          .filter(c => !SKIP_REPOS.has(c.repo))
+          .slice(0, 6)
 
         const repos: GithubRepo[] = (Array.isArray(rawRepos) ? rawRepos : [])
           .filter((r: { name: string }) => !SKIP_REPOS.has(r.name))
@@ -79,28 +110,6 @@ export function useGithubActivity(username: string) {
             stars: r.stargazers_count,
             url: r.html_url,
           }))
-
-        const commitsByRepo = await Promise.all(
-          repos.map(async (repo) => {
-            const res = await fetch(
-              `https://api.github.com/repos/${username}/${repo.name}/commits?per_page=2`,
-              { headers: githubHeaders() },
-            )
-            if (!res.ok) return []
-            const raw = await res.json()
-            return (Array.isArray(raw) ? raw : []).map((c: { sha: string; commit: { message: string; author: { date: string } } }) => ({
-              repo: repo.name,
-              message: c.commit.message.split('\n')[0],
-              date: c.commit.author.date,
-              sha: c.sha.slice(0, 7),
-            }))
-          }),
-        )
-
-        const commits: GithubCommit[] = commitsByRepo
-          .flat()
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, 6)
 
         const result = { commits, repos }
         writeCache(result)
