@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
 import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import type { ExperienceItem } from '../../../types'
@@ -24,9 +24,19 @@ const textareaClass =
   'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100'
 
 function AutoTextarea({ className, style: _style, rows: _rows, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  // After react-textarea-autosize sets the new height, reset internal scrollTop.
+  // Without this, the browser scrolls the textarea content down to show the cursor
+  // during the height transition, leaving blank space above the text.
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.scrollTop = 0
+  }, [props.value])
+
   return (
     <TextareaAutosize
       {...props}
+      ref={ref}
       minRows={1}
       maxRows={20}
       className={className ?? textareaClass}
