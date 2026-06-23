@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { Zap } from 'lucide-react'
 import { AWSIcon } from './ui/BrandIcons'
 import { useInfraStatus } from '../hooks/useInfraStatus'
 import { useLang } from '../i18n'
@@ -73,8 +74,9 @@ export function InfraStatusPanel() {
               {i.title}
             </span>
           </div>
-          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-600">
-            {responseTime != null ? `${i.latencyLabel} · ${responseTime}ms` : '–'}
+          <span className="flex items-center gap-1 font-mono text-xs text-zinc-400 dark:text-zinc-600">
+            <Zap className="size-3" />
+            {responseTime != null ? `${responseTime}ms` : '–'}
           </span>
         </div>
 
@@ -97,7 +99,7 @@ export function InfraStatusPanel() {
                 {i.lastCommitLabel}
               </p>
               <div className="flex items-start justify-between gap-2 overflow-hidden">
-                <div className="flex min-w-0 items-center gap-1.5">
+                <div className="flex min-w-0 items-start gap-1.5 overflow-hidden">
                   <a
                     href={`https://github.com/Narvaal/cloud-portfolio-platform/commit/${status.lastCommit.sha}`}
                     target="_blank"

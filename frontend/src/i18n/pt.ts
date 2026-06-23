@@ -218,7 +218,6 @@ export const pt: Translations = {
     frontendLabel: 'Frontend',
     lastDeployLabel: 'Último Deploy',
     lastCommitLabel: 'Commit Deployado',
-    latencyLabel: 'latência',
     versionLabel: 'Versão',
     statusOnline: 'Online',
     statusOffline: 'Offline',
