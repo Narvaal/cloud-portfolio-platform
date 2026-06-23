@@ -74,7 +74,7 @@ export function InfraStatusPanel() {
             </span>
           </div>
           <span className="font-mono text-xs text-zinc-400 dark:text-zinc-600">
-            {responseTime != null ? `${responseTime}ms` : '–'}
+            {responseTime != null ? `${i.latencyLabel} · ${responseTime}ms` : '–'}
           </span>
         </div>
 
