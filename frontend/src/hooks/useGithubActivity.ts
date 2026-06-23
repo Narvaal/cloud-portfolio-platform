@@ -134,7 +134,7 @@ export function useGithubActivity(username: string) {
         const rawRepos = await reposRes.json()
         const repos: GithubRepo[] = (Array.isArray(rawRepos) ? rawRepos : [])
           .filter((r: RawRepo) => !SKIP_REPOS.has(r.name))
-          .slice(0, 4)
+          .slice(0, 3)
           .map((r: RawRepo) => ({
             name: r.name,
             description: r.description,
