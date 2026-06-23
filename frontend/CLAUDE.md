@@ -58,10 +58,11 @@ Frontend connects to the backend via `VITE_API_BASE_URL` (API Gateway invoke URL
 ### CI/CD — `.github/workflows/deploy-frontend.yml`
 
 Triggers on push to `production` branch (or `workflow_dispatch`). Steps:
-1. `npm ci` + `npm run build` (injects `VITE_*` secrets as env vars)
-2. `aws s3 sync dist/ s3://$S3_BUCKET/` — assets with long cache, `index.html` with no-cache
-3. `aws cloudfront create-invalidation` — purges CDN cache
-4. `aws ssm put-parameter` — writes version, timestamp, commit SHA+message to `/portfolio/*`
+1. `actions/checkout@v4` with **`fetch-depth: 0`** — full history required for `git log --no-merges`
+2. `npm ci` + `npm run build` (injects `VITE_*` secrets as env vars)
+3. `aws s3 sync dist/ s3://$S3_BUCKET/` — assets with long cache, `index.html` with no-cache
+4. `aws cloudfront create-invalidation` — purges CDN cache
+5. `aws ssm put-parameter` — uses `git log --no-merges -1` to write the **real last commit** (not the merge commit) to `/portfolio/*`
 
 GitHub secrets required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_BASE_URL`, `VITE_GITHUB_TOKEN`.
 
@@ -88,10 +89,11 @@ terraform apply -target=aws_lambda_function.<name>
 ```
 
 SSM parameters managed by Terraform (initial values), overwritten by CI on every deploy:
-- `/portfolio/version` — full git SHA
+- `/portfolio/version` — full git SHA of merge commit
 - `/portfolio/last-deploy` — ISO 8601 timestamp
-- `/portfolio/last-commit-sha` — 7-char short SHA
-- `/portfolio/last-commit-message` — commit subject line
+- `/portfolio/last-commit-sha` — 7-char SHA of last real (non-merge) commit
+- `/portfolio/last-commit-message` — subject line of last real commit
+- `/portfolio/last-commit-date` — ISO 8601 committer date of last real commit
 
 ### DynamoDB tables — all `PAY_PER_REQUEST`
 
@@ -124,7 +126,7 @@ SSM parameters managed by Terraform (initial values), overwritten by CI on every
 ```
 backend/functions/
   status/
-    index.mjs          # GET /status — reads 4 SSM params → { api, frontend, version, lastDeploy, lastCommit }
+    index.mjs          # GET /status — reads 5 SSM params → { api, frontend, version, lastDeploy, lastCommit: { sha, message, date } }
   visitors/
     index.mjs          # GET /visitors — Scan → { count, countries: [{code,count}] sorted desc }
                        # POST /visitors — atomically increments TOTAL + COUNTRY#xx → { count }
@@ -296,8 +298,10 @@ Exported functions:
 ### InfraStatusPanel
 
 `src/components/InfraStatusPanel.tsx` + `src/hooks/useInfraStatus.ts`:
-- Polls GET /status every 60s; header shows round-trip ms via `performance.now()`
-- Shows API status, Frontend status, Last Commit (SHA inline + message `line-clamp-2`)
+- Polls GET /status every 60s; header shows round-trip ms via `performance.now()` (no label, just `45ms`)
+- Shows API status, Frontend status, **Deployed Commit** section (i18n key `lastCommitLabel`)
+- Deployed Commit row: SHA as blue underlined link → `https://github.com/Narvaal/cloud-portfolio-platform/commit/{sha}`, message truncated to 1 line (`truncate`), date relative (`Xm ago / Xh ago / Xd ago`) aligned right
+- `timeAgo(dateStr)` helper defined inline in the component
 - **Last Deploy is in the Footer** (right side, relative time). Hidden when API unavailable.
 
 ### SettingsContext
