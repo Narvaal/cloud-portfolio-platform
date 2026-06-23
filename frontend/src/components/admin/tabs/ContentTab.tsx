@@ -28,10 +28,24 @@ function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) 
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const scrollY = window.scrollY
+
+    // Save scrollTop of every scrollable ancestor before the height reset
+    const saved: Array<{ node: Element; top: number }> = []
+    let node: Element | null = el.parentElement
+    while (node && node !== document.documentElement) {
+      saved.push({ node, top: node.scrollTop })
+      node = node.parentElement
+    }
+    const winScrollY = window.scrollY
+
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
-    window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior })
+
+    // Restore synchronously so the browser renders everything in one frame
+    for (const { node, top } of saved) node.scrollTop = top
+    if (window.scrollY !== winScrollY) {
+      window.scrollTo({ top: winScrollY, behavior: 'instant' as ScrollBehavior })
+    }
   }, [props.value])
 
   return (
