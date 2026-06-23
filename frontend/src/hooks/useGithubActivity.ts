@@ -159,7 +159,7 @@ export function useGithubActivity(username: string) {
             return true
           })
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, 6)
+          .slice(0, 3)
 
         const result = { commits, repos }
         writeCache(result)

@@ -49,7 +49,7 @@ function CommitRow({ repo, sha, message, date, url }: { repo: string; sha: strin
           target="_blank"
           rel="noreferrer"
           onClick={e => e.stopPropagation()}
-          className="shrink-0 font-mono text-[10px] text-zinc-400 hover:text-accent-500 dark:hover:text-accent-400 transition-colors"
+          className="shrink-0 font-mono text-[10px] text-blue-500 underline underline-offset-2 hover:text-blue-400 transition-colors"
         >
           {sha}
         </a>
