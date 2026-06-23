@@ -5,7 +5,7 @@ resource "aws_apigatewayv2_api" "portfolio" {
 
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["GET", "POST", "PATCH", "PUT", "OPTIONS"]
+    allow_methods = ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"]
     allow_headers = ["Content-Type", "Authorization"]
     max_age       = 300
   }
@@ -217,6 +217,12 @@ resource "aws_apigatewayv2_route" "video_presign" {
 resource "aws_apigatewayv2_route" "video_publish" {
   api_id    = aws_apigatewayv2_api.portfolio.id
   route_key = "POST /video/publish"
+  target    = "integrations/${aws_apigatewayv2_integration.video.id}"
+}
+
+resource "aws_apigatewayv2_route" "video_delete" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "DELETE /video/{filename}"
   target    = "integrations/${aws_apigatewayv2_integration.video.id}"
 }
 
