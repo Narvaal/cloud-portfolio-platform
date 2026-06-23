@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import type { ExperienceItem } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
@@ -23,12 +23,28 @@ const textareaClass =
   'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100'
 
 function AutoTextarea({ className, style, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (!el.scrollTop) {
+      let b: number
+      do {
+        b = el.scrollHeight
+        el.style.height = `${el.offsetHeight - 5}px`
+      } while (b && b !== el.scrollHeight)
+    }
+    el.style.height = `${el.scrollHeight}px`
+  }, [props.value])
+
   return (
     <textarea
       {...props}
+      ref={ref}
       rows={1}
       className={className ?? textareaClass}
-      style={{ ...style, resize: 'none', overflow: 'hidden', fieldSizing: 'content' } as React.CSSProperties}
+      style={{ ...style, resize: 'none', overflow: 'hidden' }}
     />
   )
 }
