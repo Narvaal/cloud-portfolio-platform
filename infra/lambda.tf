@@ -248,6 +248,55 @@ resource "aws_lambda_function" "contacts_get" {
   }
 }
 
+data "archive_file" "video_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.build/video.zip"
+  source {
+    content  = file("${path.module}/../backend/functions/video/index.mjs")
+    filename = "index.mjs"
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_video" {
+  name = "${var.project_name}-lambda-video-${var.environment}"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = "${aws_s3_bucket.frontend.arn}/showcase/video/*"
+      },
+      {
+        Effect    = "Allow"
+        Action    = ["s3:ListBucket"]
+        Resource  = aws_s3_bucket.frontend.arn
+        Condition = { StringLike = { "s3:prefix" = ["showcase/video/*"] } }
+      },
+    ]
+  })
+}
+
+resource "aws_lambda_function" "video" {
+  function_name    = "${var.project_name}-video-${var.environment}"
+  filename         = data.archive_file.video_lambda.output_path
+  source_code_hash = data.archive_file.video_lambda.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
+  role             = aws_iam_role.lambda_exec.arn
+  timeout          = 15
+  tags             = local.tags
+
+  environment {
+    variables = {
+      S3_BUCKET                  = aws_s3_bucket.frontend.id
+      CLOUDFRONT_DISTRIBUTION_ID = aws_cloudfront_distribution.frontend.id
+    }
+  }
+}
+
 resource "aws_lambda_function" "visitors" {
   function_name    = "${var.project_name}-visitors-${var.environment}"
   filename         = data.archive_file.visitors_lambda.output_path

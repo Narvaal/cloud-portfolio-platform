@@ -205,6 +205,40 @@ export async function putContent(
   })
 }
 
+// ── Video CMS ─────────────────────────────────────────────────────────────────
+
+/** Admin — lists all .mp4 files under showcase/video/ in S3. */
+export async function getVideoList(): Promise<string[]> {
+  if (!API_BASE) return []
+  try {
+    const res = await fetch(`${API_BASE}/video/list`, { cache: 'no-store' })
+    if (!res.ok) return []
+    const data = (await res.json()) as { files: string[] }
+    return data.files
+  } catch {
+    return []
+  }
+}
+
+/** Admin — returns a presigned S3 PUT URL for uploading a video. */
+export async function getVideoUploadUrl(filename: string): Promise<string | null> {
+  if (!API_BASE) return null
+  try {
+    const res = await fetch(`${API_BASE}/video/presign?filename=${encodeURIComponent(filename)}`)
+    if (!res.ok) return null
+    const data = (await res.json()) as { uploadUrl: string }
+    return data.uploadUrl
+  } catch {
+    return null
+  }
+}
+
+/** Admin — triggers a CloudFront invalidation for /showcase/video/* after upload. */
+export async function publishVideo(): Promise<void> {
+  if (!API_BASE) return
+  await fetch(`${API_BASE}/video/publish`, { method: 'POST' })
+}
+
 /** Phase 3 — sends the contact form to the backend (SES). */
 export async function sendContactMessage(
   payload: ContactPayload,
