@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
 import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
-import type { ExperienceItem } from '../../../types'
+import type { ExperienceItem, Project, VideoProject } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
 import { useContent } from '../../../contexts/ContentContext'
 import { putContent } from '../../../services/api'
@@ -559,6 +559,302 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
   )
 }
 
+// ── Projects editor ───────────────────────────────────────────────────────────
+
+type ProjectsTab = 'featured' | 'showcase'
+
+function newProject(): Project {
+  return { title: '', description: '', stack: [], repoUrl: '', liveUrl: '', featured: false }
+}
+
+function newVideoProject(): VideoProject {
+  return { title: '', subtitle: '', year: '', description: '', stack: [], videoUrl: '', aspectRatio: '16 / 9', liveUrl: '', repoUrl: '', youtubeUrl: '' }
+}
+
+const inputClass =
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100'
+
+function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
+  const { content, refreshContent } = useContent()
+  const [tab, setTab] = useState<ProjectsTab>('featured')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [expandedFeatured, setExpandedFeatured] = useState<number | null>(0)
+  const [expandedShowcase, setExpandedShowcase] = useState<number | null>(0)
+
+  const fallback = editorLang === 'en' ? en.projects : pt.projects
+
+  const [items, setItems] = useState<Project[]>(
+    () => (content?.projects?.[editorLang]?.items as Project[] | undefined) ?? fallback.items,
+  )
+  const [showcaseItems, setShowcaseItems] = useState<VideoProject[]>(
+    () => (content?.projects?.[editorLang]?.showcaseItems as VideoProject[] | undefined) ?? fallback.showcaseItems,
+  )
+
+  useEffect(() => {
+    const p = content?.projects?.[editorLang]
+    const fb = editorLang === 'en' ? en.projects : pt.projects
+    setItems((p?.items as Project[] | undefined) ?? fb.items)
+    setShowcaseItems((p?.showcaseItems as VideoProject[] | undefined) ?? fb.showcaseItems)
+    setExpandedFeatured(0)
+    setExpandedShowcase(0)
+  }, [editorLang])
+
+  // ── Featured helpers ──────────────────────────────────────────────────────
+
+  function updateItem<K extends keyof Project>(i: number, key: K, value: Project[K]) {
+    setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [key]: value } : item))
+  }
+
+  function moveItem(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= items.length) return
+    setItems(prev => { const n = [...prev]; [n[i], n[j]] = [n[j], n[i]]; return n })
+    setExpandedFeatured(j)
+  }
+
+  function removeItem(i: number) {
+    setItems(prev => prev.filter((_, idx) => idx !== i))
+    setExpandedFeatured(null)
+  }
+
+  // ── Showcase helpers ──────────────────────────────────────────────────────
+
+  function updateShowcase<K extends keyof VideoProject>(i: number, key: K, value: VideoProject[K]) {
+    setShowcaseItems(prev => prev.map((item, idx) => idx === i ? { ...item, [key]: value } : item))
+  }
+
+  function moveShowcase(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= showcaseItems.length) return
+    setShowcaseItems(prev => { const n = [...prev]; [n[i], n[j]] = [n[j], n[i]]; return n })
+    setExpandedShowcase(j)
+  }
+
+  function removeShowcase(i: number) {
+    setShowcaseItems(prev => prev.filter((_, idx) => idx !== i))
+    setExpandedShowcase(null)
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
+  async function handleSave() {
+    setSaving(true)
+    setSaved(false)
+    const cleanItems = items.map(item => ({
+      ...item,
+      stack: Array.isArray(item.stack) ? item.stack : (item.stack as string).split('\n').map(s => s.trim()).filter(Boolean),
+      repoUrl: (item.repoUrl ?? '').trim() || undefined,
+      liveUrl: (item.liveUrl ?? '').trim() || undefined,
+    }))
+    const cleanShowcase = showcaseItems.map(item => ({
+      ...item,
+      stack: Array.isArray(item.stack) ? item.stack : (item.stack as string).split('\n').map(s => s.trim()).filter(Boolean),
+      subtitle: (item.subtitle ?? '').trim() || undefined,
+      aspectRatio: (item.aspectRatio ?? '').trim() || undefined,
+      liveUrl: (item.liveUrl ?? '').trim() || undefined,
+      repoUrl: (item.repoUrl ?? '').trim() || undefined,
+      youtubeUrl: (item.youtubeUrl ?? '').trim() || undefined,
+    }))
+    await putContent('projects', editorLang, { items: cleanItems, showcaseItems: cleanShowcase })
+    await refreshContent()
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  // ── Reorder/delete button group ───────────────────────────────────────────
+
+  function ReorderButtons({ i, total, onUp, onDown, onDelete }: {
+    i: number; total: number
+    onUp: () => void; onDown: () => void; onDelete: () => void
+  }) {
+    return (
+      <div className="flex shrink-0 items-center gap-1">
+        <button type="button" onClick={onUp} disabled={i === 0}
+          className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700">
+          <ChevronUp className="size-3.5" />
+        </button>
+        <button type="button" onClick={onDown} disabled={i === total - 1}
+          className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-25 dark:hover:bg-zinc-700">
+          <ChevronDown className="size-3.5" />
+        </button>
+        <button type="button" onClick={onDelete}
+          className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400">
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Sub-tabs */}
+      <div className="mb-6 flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-800/50">
+        {(['featured', 'showcase'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 rounded-md py-1.5 text-xs font-medium capitalize transition-colors ${
+              tab === t
+                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50'
+                : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Featured ── */}
+      {tab === 'featured' && (
+        <div className="space-y-3">
+          {items.map((item, i) => (
+            <div key={i} className="rounded-xl border border-zinc-200 dark:border-zinc-700">
+              <div className="flex items-center gap-2 p-4">
+                <button type="button" onClick={() => setExpandedFeatured(expandedFeatured === i ? null : i)}
+                  className="flex flex-1 items-center gap-3 text-left">
+                  <ChevronDown className={`size-4 shrink-0 text-zinc-400 transition-transform ${expandedFeatured === i ? 'rotate-180' : ''}`} />
+                  <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                    {item.title || <span className="italic text-zinc-400">New project</span>}
+                  </p>
+                </button>
+                <ReorderButtons i={i} total={items.length}
+                  onUp={() => moveItem(i, -1)} onDown={() => moveItem(i, 1)} onDelete={() => removeItem(i)} />
+              </div>
+
+              {expandedFeatured === i && (
+                <div className="space-y-4 border-t border-zinc-100 px-4 pb-4 pt-4 dark:border-zinc-700/60">
+                  <div>
+                    <SectionLabel>Title</SectionLabel>
+                    <input value={item.title} onChange={e => updateItem(i, 'title', e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <SectionLabel>Description</SectionLabel>
+                    <AutoTextarea value={item.description} onChange={e => updateItem(i, 'description', e.target.value)} />
+                  </div>
+                  <div>
+                    <SectionLabel>Stack <span className="font-normal text-zinc-400">(one per line)</span></SectionLabel>
+                    <AutoTextarea
+                      value={Array.isArray(item.stack) ? item.stack.join('\n') : item.stack}
+                      onChange={e => updateItem(i, 'stack', e.target.value.split('\n') as unknown as string[])}
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <SectionLabel>Repo URL <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                      <input value={item.repoUrl ?? ''} onChange={e => updateItem(i, 'repoUrl', e.target.value)} className={inputClass} />
+                    </div>
+                    <div>
+                      <SectionLabel>Live URL <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                      <input value={item.liveUrl ?? ''} onChange={e => updateItem(i, 'liveUrl', e.target.value)} className={inputClass} />
+                    </div>
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-2.5">
+                    <input type="checkbox" checked={!!item.featured}
+                      onChange={e => updateItem(i, 'featured', e.target.checked)}
+                      className="size-4 rounded accent-accent-500" />
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">Featured (highlighted card)</span>
+                  </label>
+                </div>
+              )}
+            </div>
+          ))}
+          <button type="button" onClick={() => { setItems(p => [...p, newProject()]); setExpandedFeatured(items.length) }}
+            className="mt-1 text-xs font-medium text-accent-500 hover:text-accent-400">
+            + Add project
+          </button>
+        </div>
+      )}
+
+      {/* ── Showcase ── */}
+      {tab === 'showcase' && (
+        <div className="space-y-3">
+          {showcaseItems.map((item, i) => (
+            <div key={i} className="rounded-xl border border-zinc-200 dark:border-zinc-700">
+              <div className="flex items-center gap-2 p-4">
+                <button type="button" onClick={() => setExpandedShowcase(expandedShowcase === i ? null : i)}
+                  className="flex flex-1 items-center gap-3 text-left">
+                  <ChevronDown className={`size-4 shrink-0 text-zinc-400 transition-transform ${expandedShowcase === i ? 'rotate-180' : ''}`} />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                      {item.title || <span className="italic text-zinc-400">New showcase item</span>}
+                    </p>
+                    {item.subtitle && <p className="truncate text-xs text-zinc-400">{item.subtitle}</p>}
+                  </div>
+                </button>
+                <ReorderButtons i={i} total={showcaseItems.length}
+                  onUp={() => moveShowcase(i, -1)} onDown={() => moveShowcase(i, 1)} onDelete={() => removeShowcase(i)} />
+              </div>
+
+              {expandedShowcase === i && (
+                <div className="space-y-4 border-t border-zinc-100 px-4 pb-4 pt-4 dark:border-zinc-700/60">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <SectionLabel>Title</SectionLabel>
+                      <input value={item.title} onChange={e => updateShowcase(i, 'title', e.target.value)} className={inputClass} />
+                    </div>
+                    <div>
+                      <SectionLabel>Subtitle <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                      <input value={item.subtitle ?? ''} onChange={e => updateShowcase(i, 'subtitle', e.target.value)} className={inputClass} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <SectionLabel>Year</SectionLabel>
+                      <input value={item.year} onChange={e => updateShowcase(i, 'year', e.target.value)} placeholder="e.g. Apr 2026" className={inputClass} />
+                    </div>
+                    <div>
+                      <SectionLabel>Aspect Ratio <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                      <input value={item.aspectRatio ?? ''} onChange={e => updateShowcase(i, 'aspectRatio', e.target.value)} placeholder="e.g. 16 / 9" className={inputClass} />
+                    </div>
+                  </div>
+                  <div>
+                    <SectionLabel>Description</SectionLabel>
+                    <AutoTextarea value={item.description} onChange={e => updateShowcase(i, 'description', e.target.value)} />
+                  </div>
+                  <div>
+                    <SectionLabel>Stack <span className="font-normal text-zinc-400">(one per line)</span></SectionLabel>
+                    <AutoTextarea
+                      value={Array.isArray(item.stack) ? item.stack.join('\n') : item.stack}
+                      onChange={e => updateShowcase(i, 'stack', e.target.value.split('\n') as unknown as string[])}
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                    />
+                  </div>
+                  <div>
+                    <SectionLabel>Video URL <span className="font-normal text-zinc-400">(path under /showcase/video/)</span></SectionLabel>
+                    <input value={item.videoUrl} onChange={e => updateShowcase(i, 'videoUrl', e.target.value)} placeholder="e.g. /showcase/video/MyProject.mp4" className={inputClass} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <SectionLabel>Live URL <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                      <input value={item.liveUrl ?? ''} onChange={e => updateShowcase(i, 'liveUrl', e.target.value)} className={inputClass} />
+                    </div>
+                    <div>
+                      <SectionLabel>Repo URL <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                      <input value={item.repoUrl ?? ''} onChange={e => updateShowcase(i, 'repoUrl', e.target.value)} className={inputClass} />
+                    </div>
+                  </div>
+                  <div>
+                    <SectionLabel>YouTube URL <span className="font-normal text-zinc-400">(optional)</span></SectionLabel>
+                    <input value={item.youtubeUrl ?? ''} onChange={e => updateShowcase(i, 'youtubeUrl', e.target.value)} className={inputClass} />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          <button type="button" onClick={() => { setShowcaseItems(p => [...p, newVideoProject()]); setExpandedShowcase(showcaseItems.length) }}
+            className="mt-1 text-xs font-medium text-accent-500 hover:text-accent-400">
+            + Add showcase item
+          </button>
+        </div>
+      )}
+
+      <div className="mt-6">
+        <SaveRow saving={saving} saved={saved} onSave={handleSave} />
+      </div>
+    </div>
+  )
+}
+
 // ── ContentTab root ───────────────────────────────────────────────────────────
 
 export function ContentTab() {
@@ -625,7 +921,7 @@ export function ContentTab() {
 
       {active === 'about'          && <AboutEditor editorLang={editorLang} />}
       {active === 'experience'     && <ExperienceEditor editorLang={editorLang} />}
-      {active === 'projects'       && <ComingSoonBlock label="Projects Editor" />}
+      {active === 'projects'       && <ProjectsEditor editorLang={editorLang} />}
       {active === 'certifications' && <ComingSoonBlock label="Certifications Editor" />}
     </div>
   )
