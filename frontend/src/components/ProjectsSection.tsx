@@ -28,18 +28,8 @@ export function ProjectsSection() {
               </span>
             )}
 
-            <h3 className="mb-2 text-lg">{project.title}</h3>
-            <p className="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-              {project.description}
-            </p>
-
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              {project.stack.map((tech) => (
-                <Tag key={tech}>{tech}</Tag>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3">
+            <div className="mb-2 flex items-center gap-2">
+              <h3 className="text-lg">{project.title}</h3>
               {project.repoUrl && (
                 <a
                   href={project.repoUrl}
@@ -51,6 +41,18 @@ export function ProjectsSection() {
                   <GitHubIcon className="size-4" />
                 </a>
               )}
+            </div>
+            <p className="mb-4 flex-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+              {project.description}
+            </p>
+
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {project.stack.map((tech) => (
+                <Tag key={tech}>{tech}</Tag>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3">
               {project.liveUrl && project.liveUrl !== '#' && (
                 <a
                   href={project.liveUrl}
