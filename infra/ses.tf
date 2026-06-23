@@ -1,5 +1,5 @@
-resource "aws_ses_email_identity" "contact" {
-  email = var.contact_email
+resource "aws_ses_domain_identity" "contact" {
+  domain = split("@", var.contact_email)[1]
 }
 
 resource "aws_iam_role_policy" "lambda_ses_send" {
@@ -12,7 +12,8 @@ resource "aws_iam_role_policy" "lambda_ses_send" {
       Effect   = "Allow"
       Action   = ["ses:SendEmail"]
       Resource = [
-        aws_ses_email_identity.contact.arn,
+        aws_ses_domain_identity.contact.arn,
+        "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*@${aws_ses_domain_identity.contact.domain}",
         "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:configuration-set/*",
       ]
     }]
