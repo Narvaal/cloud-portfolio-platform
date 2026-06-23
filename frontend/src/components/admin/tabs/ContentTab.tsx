@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
-import { CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { CheckCircle, ChevronDown, ChevronUp, Trash2, X } from 'lucide-react'
 import type { ExperienceItem, Project, VideoProject, Certification } from '../../../types'
 import { useSettings } from '../../../contexts/SettingsContext'
 import { useContent } from '../../../contexts/ContentContext'
@@ -20,8 +20,10 @@ const sections: { id: Section; label: string }[] = [
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
-const textareaClass =
+const inputClass =
   'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100'
+
+const textareaClass = inputClass
 
 function AutoTextarea({ className, style: _style, rows: _rows, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -81,6 +83,69 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+function TagInput({
+  tags,
+  onChange,
+  placeholder = 'Add tag…',
+}: {
+  tags: string[]
+  onChange: (tags: string[]) => void
+  placeholder?: string
+}) {
+  const [input, setInput] = useState('')
+
+  function add() {
+    const trimmed = input.trim()
+    if (!trimmed || tags.includes(trimmed)) return
+    onChange([...tags, trimmed])
+    setInput('')
+  }
+
+  function remove(tag: string) {
+    onChange(tags.filter((t) => t !== tag))
+  }
+
+  return (
+    <div>
+      {tags.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={() => remove(tag)}
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-100"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          placeholder={placeholder}
+          className={`flex-1 ${inputClass}`}
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!input.trim()}
+          className="shrink-0 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ── Open to Work toggle ───────────────────────────────────────────────────────
 
@@ -151,8 +216,8 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
   const [paragraphs, setParagraphs] = useState<string[]>(
     () => content?.about?.[editorLang]?.paragraphs ?? fallback.paragraphs,
   )
-  const [skillsText, setSkillsText] = useState<string>(
-    () => (content?.about?.[editorLang]?.skills ?? en.about.skills).join('\n'),
+  const [skills, setSkills] = useState<string[]>(
+    () => content?.about?.[editorLang]?.skills ?? en.about.skills,
   )
 
   // Re-init when editor language tab switches
@@ -160,7 +225,7 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
     const ab = content?.about?.[editorLang]
     const fb = editorLang === 'en' ? en.about : pt.about
     setParagraphs(ab?.paragraphs ?? fb.paragraphs)
-    setSkillsText((ab?.skills ?? en.about.skills).join('\n'))
+    setSkills(ab?.skills ?? en.about.skills)
   }, [editorLang]) // intentionally not including content — user edits shouldn't be overwritten mid-session
 
   function updateParagraph(i: number, value: string) {
@@ -188,10 +253,6 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
   async function handleSave() {
     setSaving(true)
     setSaved(false)
-    const skills = skillsText
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
     await putContent('about', editorLang, { paragraphs, skills })
     await refreshContent()
     setSaving(false)
@@ -250,17 +311,10 @@ function AboutEditor({ editorLang }: { editorLang: EditorLang }) {
       </div>
 
       <div className="mb-6">
-        <SectionLabel>
-          Skills{' '}
-          <span className="font-normal text-zinc-400">(one per line)</span>
-        </SectionLabel>
-        <AutoTextarea
-          value={skillsText}
-          onChange={(e) => setSkillsText(e.target.value)}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
-        />
+        <SectionLabel>Skills</SectionLabel>
+        <TagInput tags={skills} onChange={setSkills} placeholder="e.g. Java" />
         <p className="mt-1 text-xs text-zinc-400">
-          {skillsText.split('\n').filter((s) => s.trim()).length} skills — same list is used for both EN and PT
+          {skills.length} skills — same list is used for both EN and PT
         </p>
       </div>
 
@@ -356,9 +410,7 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
       ...item,
       location: item.location?.trim() || undefined,
       highlights: item.highlights.filter(Boolean),
-      stack: typeof item.stack === 'string'
-        ? (item.stack as string).split('\n').map(s => s.trim()).filter(Boolean)
-        : item.stack,
+      stack: item.stack.filter(Boolean),
     }))
     await putContent('experience', editorLang, cleaned)
     await refreshContent()
@@ -523,11 +575,11 @@ function ExperienceEditor({ editorLang }: { editorLang: EditorLang }) {
 
                 {/* Stack */}
                 <div>
-                  <SectionLabel>Stack <span className="font-normal text-zinc-400">(one per line)</span></SectionLabel>
-                  <AutoTextarea
-                    value={Array.isArray(item.stack) ? item.stack.join('\n') : item.stack}
-                    onChange={e => updateField(i, 'stack', e.target.value.split('\n') as unknown as string[])}
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                  <SectionLabel>Stack</SectionLabel>
+                  <TagInput
+                    tags={Array.isArray(item.stack) ? item.stack : []}
+                    onChange={(tags) => updateField(i, 'stack', tags)}
+                    placeholder="e.g. Java"
                   />
                 </div>
               </div>
@@ -639,9 +691,6 @@ function newVideoProject(): VideoProject {
   return { title: '', subtitle: '', year: '', description: '', stack: [], videoUrl: '', aspectRatio: '16 / 9', liveUrl: '', repoUrl: '', youtubeUrl: '' }
 }
 
-const inputClass =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100'
-
 function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
   const { content, refreshContent } = useContent()
   const [tab, setTab] = useState<ProjectsTab>(
@@ -714,13 +763,13 @@ function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
     setSaved(false)
     const cleanItems = items.map(item => ({
       ...item,
-      stack: Array.isArray(item.stack) ? item.stack : (item.stack as string).split('\n').map(s => s.trim()).filter(Boolean),
+      stack: item.stack.filter(Boolean),
       repoUrl: (item.repoUrl ?? '').trim() || undefined,
       liveUrl: (item.liveUrl ?? '').trim() || undefined,
     }))
     const cleanShowcase = showcaseItems.map(item => ({
       ...item,
-      stack: Array.isArray(item.stack) ? item.stack : (item.stack as string).split('\n').map(s => s.trim()).filter(Boolean),
+      stack: item.stack.filter(Boolean),
       subtitle: (item.subtitle ?? '').trim() || undefined,
       aspectRatio: (item.aspectRatio ?? '').trim() || undefined,
       liveUrl: (item.liveUrl ?? '').trim() || undefined,
@@ -802,11 +851,11 @@ function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
                     <AutoTextarea value={item.description} onChange={e => updateItem(i, 'description', e.target.value)} />
                   </div>
                   <div>
-                    <SectionLabel>Stack <span className="font-normal text-zinc-400">(one per line)</span></SectionLabel>
-                    <AutoTextarea
-                      value={Array.isArray(item.stack) ? item.stack.join('\n') : item.stack}
-                      onChange={e => updateItem(i, 'stack', e.target.value.split('\n') as unknown as string[])}
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                    <SectionLabel>Stack</SectionLabel>
+                    <TagInput
+                      tags={Array.isArray(item.stack) ? item.stack : []}
+                      onChange={(tags) => updateItem(i, 'stack', tags)}
+                      placeholder="e.g. React"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -885,11 +934,11 @@ function ProjectsEditor({ editorLang }: { editorLang: EditorLang }) {
                     <AutoTextarea value={item.description} onChange={e => updateShowcase(i, 'description', e.target.value)} />
                   </div>
                   <div>
-                    <SectionLabel>Stack <span className="font-normal text-zinc-400">(one per line)</span></SectionLabel>
-                    <AutoTextarea
-                      value={Array.isArray(item.stack) ? item.stack.join('\n') : item.stack}
-                      onChange={e => updateShowcase(i, 'stack', e.target.value.split('\n') as unknown as string[])}
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
+                    <SectionLabel>Stack</SectionLabel>
+                    <TagInput
+                      tags={Array.isArray(item.stack) ? item.stack : []}
+                      onChange={(tags) => updateShowcase(i, 'stack', tags)}
+                      placeholder="e.g. React"
                     />
                   </div>
                   <div>
