@@ -66,8 +66,8 @@ export interface InfraStatus {
   version: string
   /** Controlled via admin panel. When absent, falls back to profile.openToWork. */
   openToWork?: boolean
-  /** SHA + message of the last deployed commit, written by GitHub Actions via SSM. */
-  lastCommit?: { sha: string; message: string }
+  /** SHA + message + date of the last deployed commit, written by GitHub Actions via SSM. */
+  lastCommit?: { sha: string; message: string; date?: string }
 }
 
 /** Phase 6 — reads API health, frontend health, last deploy time and version from the backend. */
