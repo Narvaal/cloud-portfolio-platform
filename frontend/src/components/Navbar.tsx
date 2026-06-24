@@ -13,7 +13,7 @@ function LangSlot({ lang }: { lang: string }) {
   return (
     <span
       className="relative inline-block overflow-hidden"
-      style={{ height: '18px', width: '2.4ch', verticalAlign: 'middle' }}
+      style={{ height: '1em', width: '2.2ch', verticalAlign: 'middle' }}
     >
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
@@ -22,8 +22,7 @@ function LangSlot({ lang }: { lang: string }) {
           animate={{ y: 0 }}
           exit={{ y: '-110%' }}
           transition={{ type: 'spring', stiffness: 350, damping: 30, mass: 0.8 }}
-          className="block text-center leading-none"
-          style={{ fontSize: '17px' }}
+          className="block text-center"
         >
           {lang.toUpperCase()}
         </motion.span>
@@ -82,7 +81,7 @@ export function Navbar() {
                   .startViewTransition(() => { flushSync(() => setLang(next)) })
               }}
               aria-label={t.langSwitcher.ariaLabel}
-              className="rounded-lg px-2.5 py-2 font-mono text-sm font-semibold text-accent-600 transition-colors hover:bg-zinc-100 dark:text-accent-400 dark:hover:bg-zinc-800"
+              className="rounded-lg px-2.5 py-2 font-mono text-sm font-bold text-accent-600 transition-colors hover:bg-zinc-100 dark:text-accent-400 dark:hover:bg-zinc-800"
             >
               <LangSlot lang={lang === 'en' ? 'pt' : 'en'} />
             </button>
@@ -104,7 +103,7 @@ export function Navbar() {
                   exit={{ rotate: 45, opacity: 0, scale: 0.7 }}
                   transition={{ duration: 0.18, ease: 'easeOut' }}
                 >
-                  {theme === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
+                  {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
                 </motion.div>
               </AnimatePresence>
             </button>
