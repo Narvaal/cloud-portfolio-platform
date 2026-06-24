@@ -287,9 +287,16 @@ export async function sendContactMessage(
   payload: ContactPayload,
 ): Promise<void> {
   if (!API_BASE) {
-    // No backend yet: simulate a short round-trip so the UI flow is testable.
     await new Promise((resolve) => setTimeout(resolve, 600))
     return
   }
-  await postJson('/contact', payload)
+  const res = await fetch(`${API_BASE}/contact`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(data.error ?? 'Failed to send message')
+  }
 }

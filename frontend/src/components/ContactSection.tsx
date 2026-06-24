@@ -7,25 +7,47 @@ import { useLang } from '../i18n'
 
 type Status = 'idle' | 'sending' | 'success' | 'error'
 
+interface FieldErrors {
+  name?: string
+  email?: string
+  message?: string
+  general?: string
+}
+
 const inputClass =
   'w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-accent-400'
+
+const inputErrorClass =
+  'w-full rounded-lg border border-red-400 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-red-500 dark:bg-zinc-900 dark:text-zinc-100'
+
+function classifyError(msg: string): FieldErrors {
+  const lower = msg.toLowerCase()
+  if (lower.includes('name')) return { name: msg }
+  if (lower.includes('email')) return { email: msg }
+  if (lower.includes('message')) return { message: msg }
+  return { general: msg }
+}
 
 export function ContactSection() {
   const { t } = useLang()
   const { contact } = t
   const [form, setForm] = useState({ name: '', email: '', message: '' })
   const [status, setStatus] = useState<Status>('idle')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const arrivedAt = useRef(Date.now())
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    // clear the error for this field as the user types
+    setFieldErrors((prev) => ({ ...prev, [e.target.name]: undefined }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setStatus('sending')
+    setFieldErrors({})
     try {
       await sendContactMessage({
         ...form,
@@ -36,8 +58,10 @@ export function ContactSection() {
       })
       setStatus('success')
       setForm({ name: '', email: '', message: '' })
-    } catch {
+    } catch (err) {
       setStatus('error')
+      const msg = err instanceof Error ? err.message : ''
+      setFieldErrors(msg ? classifyError(msg) : { general: contact.error })
     }
   }
 
@@ -65,8 +89,14 @@ export function ContactSection() {
                 required
                 value={form.name}
                 onChange={handleChange}
-                className={inputClass}
+                className={fieldErrors.name ? inputErrorClass : inputClass}
               />
+              {fieldErrors.name && (
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-red-500">
+                  <AlertCircle className="size-3 shrink-0" />
+                  {fieldErrors.name}
+                </p>
+              )}
             </div>
             <div>
               <label
@@ -82,8 +112,14 @@ export function ContactSection() {
                 required
                 value={form.email}
                 onChange={handleChange}
-                className={inputClass}
+                className={fieldErrors.email ? inputErrorClass : inputClass}
               />
+              {fieldErrors.email && (
+                <p className="mt-1.5 flex items-center gap-1 text-xs text-red-500">
+                  <AlertCircle className="size-3 shrink-0" />
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
           </div>
 
@@ -101,8 +137,14 @@ export function ContactSection() {
               required
               value={form.message}
               onChange={handleChange}
-              className={inputClass}
+              className={fieldErrors.message ? inputErrorClass : inputClass}
             />
+            {fieldErrors.message && (
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-red-500">
+                <AlertCircle className="size-3 shrink-0" />
+                {fieldErrors.message}
+              </p>
+            )}
           </div>
 
           {status === 'success' && (
@@ -111,10 +153,10 @@ export function ContactSection() {
               {contact.success}
             </div>
           )}
-          {status === 'error' && (
+          {fieldErrors.general && (
             <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400">
               <AlertCircle className="size-4 shrink-0" />
-              {contact.error}
+              {fieldErrors.general}
             </div>
           )}
 
