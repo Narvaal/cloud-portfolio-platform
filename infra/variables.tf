@@ -15,6 +15,12 @@ variable "contact_email" {
   type        = string
 }
 
+variable "domain_name" {
+  description = "Root domain name for the portfolio (e.g. example.com). www. is added automatically."
+  type        = string
+  default     = ""
+}
+
 variable "environment" {
   description = "Deployment environment"
   type        = string

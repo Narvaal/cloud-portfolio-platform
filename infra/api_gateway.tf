@@ -18,6 +18,15 @@ resource "aws_apigatewayv2_stage" "default" {
   tags        = local.tags
 }
 
+# Stage "api" exposes all routes under /api/* — used by CloudFront behavior
+# so requests to /api/visitors hit this stage, which strips /api and routes to /visitors
+resource "aws_apigatewayv2_stage" "api" {
+  api_id      = aws_apigatewayv2_api.portfolio.id
+  name        = "api"
+  auto_deploy = true
+  tags        = local.tags
+}
+
 resource "aws_apigatewayv2_integration" "status" {
   api_id                 = aws_apigatewayv2_api.portfolio.id
   integration_type       = "AWS_PROXY"

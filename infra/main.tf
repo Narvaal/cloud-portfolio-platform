@@ -1,11 +1,95 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  bucket_name = "${var.project_name}-frontend-${data.aws_caller_identity.current.account_id}"
+  bucket_name  = "${var.project_name}-frontend-${data.aws_caller_identity.current.account_id}"
+  has_domain   = var.domain_name != ""
   tags = {
     Project     = var.project_name
     Environment = var.environment
     ManagedBy   = "terraform"
+  }
+}
+
+# ── Custom domain: ACM certificate + Route 53 ─────────────────────────────────
+
+data "aws_route53_zone" "main" {
+  count = local.has_domain ? 1 : 0
+  name  = var.domain_name
+}
+
+resource "aws_acm_certificate" "frontend" {
+  count                     = local.has_domain ? 1 : 0
+  domain_name               = "*.${var.domain_name}"
+  subject_alternative_names = [var.domain_name]
+  validation_method         = "DNS"
+  tags                      = local.tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "cert_validation" {
+  for_each = local.has_domain ? {
+    for dvo in aws_acm_certificate.frontend[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = data.aws_route53_zone.main[0].zone_id
+}
+
+resource "aws_acm_certificate_validation" "frontend" {
+  count                   = local.has_domain ? 1 : 0
+  certificate_arn         = aws_acm_certificate.frontend[0].arn
+  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+}
+
+resource "aws_route53_record" "portfolio" {
+  count   = local.has_domain ? 1 : 0
+  zone_id = data.aws_route53_zone.main[0].zone_id
+  name    = "portfolio.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "www" {
+  count           = local.has_domain ? 1 : 0
+  zone_id         = data.aws_route53_zone.main[0].zone_id
+  name            = "www.${var.domain_name}"
+  type            = "A"
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "root" {
+  count           = local.has_domain ? 1 : 0
+  zone_id         = data.aws_route53_zone.main[0].zone_id
+  name            = var.domain_name
+  type            = "A"
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
@@ -57,12 +141,38 @@ resource "aws_cloudfront_distribution" "frontend" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # US, Canada, Europe
+  aliases             = local.has_domain ? ["portfolio.${var.domain_name}"] : []
   tags                = local.tags
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id                = "S3-${local.bucket_name}"
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  origin {
+    domain_name = "${aws_apigatewayv2_api.portfolio.id}.execute-api.${var.aws_region}.amazonaws.com"
+    origin_id   = "APIGW"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  # /api/* → API Gateway (with CloudFront-Viewer-Country forwarding)
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "APIGW"
+    viewer_protocol_policy = "https-only"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled (AWS managed)
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.api.id
   }
 
   default_cache_behavior {
@@ -97,8 +207,13 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = !local.has_domain
+    acm_certificate_arn            = local.has_domain ? aws_acm_certificate_validation.frontend[0].certificate_arn : null
+    ssl_support_method             = local.has_domain ? "sni-only" : null
+    minimum_protocol_version       = local.has_domain ? "TLSv1.2_2021" : "TLSv1"
   }
+
+  depends_on = [aws_acm_certificate_validation.frontend]
 }
 
 # ── S3 bucket policy — allow CloudFront OAC ──────────────────────────────────

@@ -54,8 +54,9 @@ Frontend connects via `VITE_API_BASE_URL`. When unset locally, all API calls ret
 
 | Variable | Where set | Purpose |
 |---|---|---|
-| `VITE_API_BASE_URL` | GitHub secret + local `.env.production` | API Gateway base URL |
+| `VITE_API_BASE_URL` | GitHub secret + local `.env.production` | `https://portfolio.alessandro-bezerra.me/api` — routes through CloudFront `/api/*` behavior |
 | `VITE_GITHUB_TOKEN` | GitHub secret | Fine-grained read-only PAT — raises GitHub rate limit to 5000 req/h |
+| `VITE_ADMIN_PASSWORD` | GitHub secret | Admin panel password (secret name is `VITE_ADMIN_PASSWORD` — note the full D at end) |
 
 ### CI/CD — `.github/workflows/deploy-frontend.yml`
 
@@ -66,19 +67,20 @@ Triggers on push to `production` (or `workflow_dispatch`). Steps:
 4. `aws cloudfront create-invalidation` — purges CDN cache
 5. `aws ssm put-parameter` — writes last real commit (non-merge) SHA/message/date to `/portfolio/*`
 
-GitHub secrets required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_BASE_URL`, `VITE_GITHUB_TOKEN`.
+GitHub secrets required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_BASE_URL`, `VITE_GITHUB_TOKEN`, `VITE_ADMIN_PASSWORD`.
 
 ### Terraform — `infra/`
 
 ```
 infra/
   versions.tf          # provider AWS ~> 5.0
-  variables.tf         # aws_region, project_name, environment, contact_email
-  main.tf              # S3, CloudFront OAC, SSM params, GitHub Actions IAM user, S3 CORS
+  variables.tf         # aws_region, project_name, environment, contact_email, domain_name
+  main.tf              # S3, CloudFront (dual-origin), ACM wildcard cert, Route 53 A records, SSM, IAM
   lambda.tf            # Lambda exec role + all Lambda functions + IAM policies
-  api_gateway.tf       # HTTP API, $default stage, all routes + Lambda permissions
+  api_gateway.tf       # HTTP API, $default stage, "api" named stage, all routes + Lambda permissions
+  cloudfront_api.tf    # CloudFront Function (not used in behavior), origin request policy (whitelist CloudFront-Viewer-Country)
   dynamodb.tf          # all DynamoDB tables
-  ses.tf               # SES email identity + Lambda SES IAM policy
+  ses.tf               # SES domain identity (aws_ses_domain_identity) + Lambda SES send IAM policy
   outputs.tf           # CloudFront URL, API GW URL, S3 bucket, IAM keys
 ```
 
@@ -95,6 +97,39 @@ SSM parameters (written by CI on every deploy):
 - `/portfolio/last-commit-sha` — 7-char SHA of last real commit
 - `/portfolio/last-commit-message` — subject line of last real commit
 - `/portfolio/last-commit-date` — ISO 8601 committer date
+
+### Custom domain — `portfolio.alessandro-bezerra.me`
+
+Live URL: `https://portfolio.alessandro-bezerra.me`
+
+Setup:
+- ACM wildcard cert (`*.alessandro-bezerra.me` + SAN `alessandro-bezerra.me`) in `us-east-1`, DNS validated via Route 53
+- CloudFront aliases currently `["portfolio.${domain_name}"]` only
+- Route 53 A alias records: `portfolio.` → CloudFront; `www.` and `@` records exist in Route 53 but are NOT in CloudFront aliases yet (blocked by Squarespace's old CloudFront distribution owning those CNAMEs)
+- **When Squarespace releases the aliases** (verify with `aws cloudfront list-conflicting-aliases --alias www.alessandro-bezerra.me --distribution-id <id>`): change `aliases` in `main.tf` to `["portfolio.${var.domain_name}", "www.${var.domain_name}", var.domain_name]` and run `terraform apply`
+
+### CloudFront dual-origin architecture
+
+CloudFront distribution has two origins:
+1. **S3** (`S3-<bucket>`) — serves the React SPA (default behavior `*`)
+2. **API Gateway** (`APIGW`) — serves the backend (`/api/*` ordered behavior)
+
+**`/api/*` behavior**: `CachingDisabled` (AWS managed policy), `whitelist` origin request policy that forwards only `CloudFront-Viewer-Country` header. CloudFront uses the origin domain as `Host` (not the viewer's `Host`) so API GW accepts the request. Query strings forwarded (`all`), no cookies.
+
+**API GW `api` named stage**: all Lambda routes are accessible at `/<id>.execute-api.us-east-1.amazonaws.com/api/*`. This means a request to `portfolio.../api/visitors` hits CloudFront → APIGW origin → `api` stage → `/visitors` route — no URI rewriting needed. The CloudFront Function in `cloudfront_api.tf` exists in state but is NOT attached to any behavior.
+
+**Country tracking**: `cloudfront-viewer-country` header forwarded to Lambda via `whitelist` origin request policy. Using `allViewerAndWhitelistCloudFront` instead would forward the viewer's `Host` header, causing API GW to return 403.
+
+**SPA fallback**: custom error responses map 403 and 404 from S3 → 200 + `/index.html`. These only trigger for the S3 origin path, so API GW errors are not masked (they're a separate origin).
+
+### SES and email
+
+Contact email: `contact@alessandro-bezerra.me`
+
+- `ses.tf` uses `aws_ses_domain_identity` (not `aws_ses_email_identity`) — covers all `@alessandro-bezerra.me` addresses
+- Domain verified via `_amazonses.` TXT record in Route 53
+- SES IAM policy allows `identity/alessandro-bezerra.me` ARN plus wildcard `identity/*@alessandrobezerra.me`
+- **Email forwarding**: a separate Lambda (`redirectEmail`) in `us-east-2` receives SES receipt rule trigger. It strips the `Return-Path:` header (otherwise SES uses the Amazon bounce address as sender, which fails verification), sets `Source` to `contact@alessandro-bezerra.me`, and forwards to `alessandrobezerra100@gmail.com`. The `_amazonses.` TXT record has TWO values — one for `us-east-1` (sending) and one for `us-east-2` (receipt rules).
 
 ### DynamoDB tables — all `PAY_PER_REQUEST`
 
@@ -324,7 +359,7 @@ Cache: `localStorage('github_activity_cache')`, TTL 5 minutes. `cache: 'no-store
 ### Admin panel
 
 `/admin` route (`src/components/admin/AdminPage.tsx`):
-- Client-side password check (hardcoded `"admin"`) — placeholder auth
+- Client-side password check against `import.meta.env.VITE_ADMIN_PASSWORD` (falls back to `"admin"` locally) — placeholder auth
 - Auth state in `sessionStorage` as `admin_token`
 - Sidebar tabs: Analytics, Messages (unread badge), Resume, Content
 - Active tab persisted to `localStorage('admin_tab')`
