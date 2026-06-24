@@ -13,6 +13,13 @@ function adminHeaders(): Record<string, string> {
 
 /** Authenticates with the backend and returns a session token. */
 export async function loginAdmin(password: string): Promise<string> {
+  if (!API_BASE) {
+    // Local dev: compare against VITE_ADMIN_PASSWORD (no real backend)
+    await new Promise((r) => setTimeout(r, 300))
+    const local = import.meta.env.VITE_ADMIN_PASSWORD || 'admin'
+    if (password !== local) throw new Error('Unauthorized')
+    return 'local-dev-token'
+  }
   const res = await fetch(`${API_BASE}/admin/auth`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
