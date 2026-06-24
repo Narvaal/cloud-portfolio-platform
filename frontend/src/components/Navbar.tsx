@@ -125,28 +125,28 @@ export function Navbar() {
             <Container>
               <nav className="flex flex-col gap-1 py-4">
                 {t.nav.map((item) => (
-                  <a
+                  <button
                     key={item.id}
-                    href={`#${item.id}`}
-                    onClick={(e) => {
-                      e.preventDefault()
+                    type="button"
+                    onClick={() => {
                       notifyNavClick(item.id)
                       setOpen(false)
+                      const id = item.id
                       setTimeout(() => {
-                        const el = document.getElementById(item.id)
+                        const el = document.getElementById(id)
                         if (!el) return
                         const top = el.getBoundingClientRect().top + window.scrollY - 64
                         window.scrollTo({ top, behavior: 'smooth' })
-                      }, 350)
+                      }, 400)
                     }}
-                    className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+                    className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                       activeId === item.id
                         ? 'bg-accent-50 text-accent-600 dark:bg-accent-500/10 dark:text-accent-400'
                         : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-50'
                     }`}
                   >
                     {item.label}
-                  </a>
+                  </button>
                 ))}
               </nav>
             </Container>
