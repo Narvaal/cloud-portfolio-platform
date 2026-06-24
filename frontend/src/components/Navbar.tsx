@@ -133,7 +133,7 @@ export function Navbar() {
                       notifyNavClick(item.id)
                       setOpen(false)
                       setTimeout(() => {
-                        window.location.hash = '#' + item.id
+                        document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                       }, 300)
                     }}
                     className={`rounded-lg px-3 py-2 text-sm transition-colors ${
