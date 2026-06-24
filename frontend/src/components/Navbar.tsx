@@ -128,7 +128,17 @@ export function Navbar() {
                   <a
                     key={item.id}
                     href={`#${item.id}`}
-                    onClick={() => { notifyNavClick(item.id); setOpen(false) }}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      notifyNavClick(item.id)
+                      setOpen(false)
+                      setTimeout(() => {
+                        const el = document.getElementById(item.id)
+                        if (!el) return
+                        const top = el.getBoundingClientRect().top + window.scrollY - 64
+                        window.scrollTo({ top, behavior: 'smooth' })
+                      }, 300)
+                    }}
                     className={`rounded-lg px-3 py-2 text-sm transition-colors ${
                       activeId === item.id
                         ? 'bg-accent-50 text-accent-600 dark:bg-accent-500/10 dark:text-accent-400'
