@@ -13,7 +13,7 @@ function LangSlot({ lang }: { lang: string }) {
   return (
     <span
       className="relative inline-block overflow-hidden"
-      style={{ height: '1em', width: '2.2ch' }}
+      style={{ height: '1.1em', width: '2.2ch' }}
     >
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
@@ -22,7 +22,7 @@ function LangSlot({ lang }: { lang: string }) {
           animate={{ y: 0 }}
           exit={{ y: '-110%' }}
           transition={{ type: 'spring', stiffness: 350, damping: 30, mass: 0.8 }}
-          className="block text-center"
+          className="absolute inset-0 flex items-center justify-center"
         >
           {lang.toUpperCase()}
         </motion.span>
