@@ -118,7 +118,7 @@ export function ContactSection() {
             </div>
           )}
 
-          <Button type="submit" size="lg" disabled={status === 'sending'}>
+          <Button type="submit" size="lg" disabled={status === 'sending'} className="w-full justify-center">
             {status === 'sending' ? contact.sending : contact.send}
           </Button>
         </form>
