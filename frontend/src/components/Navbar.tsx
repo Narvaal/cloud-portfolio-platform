@@ -13,7 +13,7 @@ function LangSlot({ lang }: { lang: string }) {
   return (
     <span
       className="relative inline-block overflow-hidden"
-      style={{ height: '1.2em', width: '2.2ch', verticalAlign: 'text-bottom' }}
+      style={{ height: '1.2em', width: '2.2ch', verticalAlign: 'middle' }}
     >
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
@@ -103,7 +103,7 @@ export function Navbar() {
                   exit={{ rotate: 45, opacity: 0, scale: 0.7 }}
                   transition={{ duration: 0.18, ease: 'easeOut' }}
                 >
-                  {theme === 'dark' ? <Sun className="size-[14px]" /> : <Moon className="size-[14px]" />}
+                  {theme === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
                 </motion.div>
               </AnimatePresence>
             </button>
