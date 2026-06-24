@@ -1,6 +1,7 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront'
+import { isAuthorized, UNAUTHORIZED } from './auth.mjs'
 
 const s3 = new S3Client({})
 const cf = new CloudFrontClient({ region: 'us-east-1' })
@@ -16,6 +17,8 @@ const CORS = {
 }
 
 export const handler = async (event) => {
+  if (!(await isAuthorized(event))) return UNAUTHORIZED
+
   const method = event.requestContext?.http?.method ?? 'GET'
   const lang   = event.queryStringParameters?.lang ?? 'en'
   const key    = `resume/${lang}/${FILENAME}`
@@ -27,11 +30,7 @@ export const handler = async (event) => {
       ContentType: 'application/pdf',
     })
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 })
-    return {
-      statusCode: 200,
-      headers: CORS,
-      body: JSON.stringify({ uploadUrl }),
-    }
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ uploadUrl }) }
   }
 
   if (method === 'POST') {
@@ -42,11 +41,7 @@ export const handler = async (event) => {
         Paths: { Quantity: 1, Items: ['/resume/*'] },
       },
     }))
-    return {
-      statusCode: 200,
-      headers: CORS,
-      body: JSON.stringify({ ok: true }),
-    }
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) }
   }
 
   return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Method Not Allowed' }) }

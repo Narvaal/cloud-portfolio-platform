@@ -55,3 +55,39 @@ resource "aws_dynamodb_table" "visitors" {
 
   tags = local.tags
 }
+
+resource "aws_dynamodb_table" "rate_limit" {
+  name         = "${var.project_name}-rate-limit-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "pk"
+
+  attribute {
+    name = "pk"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  tags = local.tags
+}
+
+resource "aws_dynamodb_table" "admin_sessions" {
+  name         = "${var.project_name}-admin-sessions-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "token"
+
+  attribute {
+    name = "token"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  tags = local.tags
+}

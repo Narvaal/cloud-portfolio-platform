@@ -1,5 +1,6 @@
 import { DynamoDBClient, ScanCommand, PutItemCommand } from '@aws-sdk/client-dynamodb'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
+import { isAuthorized, UNAUTHORIZED } from './auth.mjs'
 
 const dynamo = new DynamoDBClient({})
 const TABLE = process.env.CONTENT_TABLE
@@ -29,6 +30,7 @@ export const handler = async (event) => {
   }
 
   if (method === 'PUT') {
+    if (!(await isAuthorized(event))) return UNAUTHORIZED
     const type = event.pathParameters?.type
     const lang = event.queryStringParameters?.lang
     if (!type || !lang) {

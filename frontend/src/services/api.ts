@@ -2,6 +2,27 @@ import type { ExperienceItem, Project, VideoProject, Certification } from '../ty
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
+function getAdminToken(): string | null {
+  return sessionStorage.getItem('admin_token')
+}
+
+function adminHeaders(): Record<string, string> {
+  const token = getAdminToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/** Authenticates with the backend and returns a session token. */
+export async function loginAdmin(password: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/admin/auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  })
+  if (!res.ok) throw new Error('Unauthorized')
+  const data = (await res.json()) as { token: string }
+  return data.token
+}
+
 export interface ContactPayload {
   name: string
   email: string
@@ -115,7 +136,7 @@ export async function patchSetting(key: string, value: string): Promise<void> {
   if (!API_BASE) return
   await fetch(`${API_BASE}/settings/${encodeURIComponent(key)}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...adminHeaders() },
     body: JSON.stringify({ value }),
   })
 }
@@ -124,7 +145,7 @@ export async function patchSetting(key: string, value: string): Promise<void> {
 export async function getResumeUploadUrl(lang: 'en' | 'pt'): Promise<string | null> {
   if (!API_BASE) return null
   try {
-    const res = await fetch(`${API_BASE}/resume/presign?lang=${lang}`)
+    const res = await fetch(`${API_BASE}/resume/presign?lang=${lang}`, { headers: adminHeaders() })
     if (!res.ok) return null
     const data = (await res.json()) as { uploadUrl: string }
     return data.uploadUrl
@@ -136,20 +157,23 @@ export async function getResumeUploadUrl(lang: 'en' | 'pt'): Promise<string | nu
 /** Admin — triggers a CloudFront invalidation for /resume/* after upload. */
 export async function publishResume(): Promise<void> {
   if (!API_BASE) return
-  await fetch(`${API_BASE}/resume/publish`, { method: 'POST' })
+  await fetch(`${API_BASE}/resume/publish`, { method: 'POST', headers: adminHeaders() })
 }
 
 /** Admin — marks a contact message as read. */
 export async function patchContact(id: string): Promise<void> {
   if (!API_BASE) return
-  await fetch(`${API_BASE}/contacts/${encodeURIComponent(id)}`, { method: 'PATCH' })
+  await fetch(`${API_BASE}/contacts/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: adminHeaders(),
+  })
 }
 
 /** Admin — lists all contact form submissions from DynamoDB, newest first. */
 export async function getContacts(): Promise<ContactMessage[]> {
   if (!API_BASE) return []
   try {
-    const res = await fetch(`${API_BASE}/contacts`)
+    const res = await fetch(`${API_BASE}/contacts`, { headers: adminHeaders() })
     if (!res.ok) return []
     const data = (await res.json()) as { items: ContactMessage[] }
     return data.items
@@ -200,7 +224,7 @@ export async function putContent(
   if (!API_BASE) return
   await fetch(`${API_BASE}/content/${encodeURIComponent(type)}?lang=${lang}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...adminHeaders() },
     body: JSON.stringify(data),
   })
 }
@@ -211,7 +235,7 @@ export async function putContent(
 export async function getVideoList(): Promise<string[]> {
   if (!API_BASE) return []
   try {
-    const res = await fetch(`${API_BASE}/video/list`, { cache: 'no-store' })
+    const res = await fetch(`${API_BASE}/video/list`, { cache: 'no-store', headers: adminHeaders() })
     if (!res.ok) return []
     const data = (await res.json()) as { files: string[] }
     return data.files
@@ -224,7 +248,10 @@ export async function getVideoList(): Promise<string[]> {
 export async function getVideoUploadUrl(filename: string): Promise<string | null> {
   if (!API_BASE) return null
   try {
-    const res = await fetch(`${API_BASE}/video/presign?filename=${encodeURIComponent(filename)}`)
+    const res = await fetch(
+      `${API_BASE}/video/presign?filename=${encodeURIComponent(filename)}`,
+      { headers: adminHeaders() },
+    )
     if (!res.ok) return null
     const data = (await res.json()) as { uploadUrl: string }
     return data.uploadUrl
@@ -236,13 +263,16 @@ export async function getVideoUploadUrl(filename: string): Promise<string | null
 /** Admin — triggers a CloudFront invalidation for /showcase/video/* after upload. */
 export async function publishVideo(): Promise<void> {
   if (!API_BASE) return
-  await fetch(`${API_BASE}/video/publish`, { method: 'POST' })
+  await fetch(`${API_BASE}/video/publish`, { method: 'POST', headers: adminHeaders() })
 }
 
 /** Admin — deletes a video from S3. */
 export async function deleteVideo(filename: string): Promise<void> {
   if (!API_BASE) return
-  await fetch(`${API_BASE}/video/${encodeURIComponent(filename)}`, { method: 'DELETE' })
+  await fetch(`${API_BASE}/video/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+    headers: adminHeaders(),
+  })
 }
 
 /** Phase 3 — sends the contact form to the backend (SES). */

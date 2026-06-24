@@ -1,5 +1,6 @@
 import { DynamoDBClient, ScanCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
+import { isAuthorized, UNAUTHORIZED } from './auth.mjs'
 
 const dynamo = new DynamoDBClient({})
 const TABLE  = process.env.SETTINGS_TABLE
@@ -24,6 +25,7 @@ export const handler = async (event) => {
   }
 
   if (method === 'PATCH') {
+    if (!(await isAuthorized(event))) return UNAUTHORIZED
     const key = event.pathParameters?.key
     if (!key) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing key' }) }

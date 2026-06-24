@@ -182,7 +182,8 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized (AWS managed)
+    cache_policy_id              = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized (AWS managed)
+    response_headers_policy_id   = aws_cloudfront_response_headers_policy.security.id
   }
 
   # SPA routing: return index.html for 403/404 so BrowserRouter works
@@ -342,4 +343,45 @@ resource "aws_iam_user_policy" "github_actions" {
   name   = "${var.project_name}-github-actions-policy-${var.environment}"
   user   = aws_iam_user.github_actions.name
   policy = data.aws_iam_policy_document.github_actions.json
+}
+
+# ── CloudFront security headers ───────────────────────────────────────────────
+
+resource "aws_cloudfront_response_headers_policy" "security" {
+  name = "${var.project_name}-security-headers-${var.environment}"
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+    content_type_options {
+      override = true
+    }
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+    xss_protection {
+      mode_block = true
+      protection = true
+      override   = true
+    }
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+  }
+}
+
+# ── SSM: admin password (SecureString — set value manually after apply) ───────
+
+resource "aws_ssm_parameter" "admin_secret" {
+  name  = "/portfolio/admin-secret"
+  type  = "SecureString"
+  value = "changeme"
+  tags  = local.tags
+  lifecycle { ignore_changes = [value] }
 }

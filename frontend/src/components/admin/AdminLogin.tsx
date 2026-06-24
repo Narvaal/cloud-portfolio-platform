@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Lock } from 'lucide-react'
+import { loginAdmin } from '../../services/api'
 
 interface Props {
   onLogin: () => void
@@ -14,18 +15,15 @@ export function AdminLogin({ onLogin }: Props) {
     e.preventDefault()
     setLoading(true)
     setError(false)
-
-    // placeholder — will call POST /admin/login and validate JWT
-    await new Promise((r) => setTimeout(r, 600))
-
-    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin'
-    if (password === adminPassword) {
-      sessionStorage.setItem('admin_token', 'placeholder')
+    try {
+      const token = await loginAdmin(password)
+      sessionStorage.setItem('admin_token', token)
       onLogin()
-    } else {
+    } catch {
       setError(true)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (

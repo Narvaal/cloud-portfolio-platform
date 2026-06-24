@@ -1,4 +1,5 @@
 import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
+import { isAuthorized, UNAUTHORIZED } from './auth.mjs'
 
 const dynamo = new DynamoDBClient({})
 const CONTACTS_TABLE = process.env.CONTACTS_TABLE
@@ -10,6 +11,8 @@ const CORS = {
 }
 
 export const handler = async (event) => {
+  if (!(await isAuthorized(event))) return UNAUTHORIZED
+
   const id = event.pathParameters?.id
   if (!id) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing id' }) }
