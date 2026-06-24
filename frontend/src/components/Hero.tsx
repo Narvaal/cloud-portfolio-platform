@@ -180,7 +180,7 @@ export function Hero() {
               {t.hero.tagline}
             </p>
 
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button href="#projects" size="lg">
                 {t.hero.viewWork}
               </Button>

@@ -97,6 +97,9 @@ html[data-vt="lang"]::view-transition-new(root) {
 @media (max-width: 639px) {
   p {
     text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    overflow-wrap: break-word;
   }
 }
 
