@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Branch structure:
 - `dev` — active development, where all agent commits go
 - `production` — stable, live branch; only receives changes after human explicitly approves
-- `main` — mirrors `dev` (currently diverged; reconcile manually when convenient)
+- `main` — mirrors `dev`
 
 Deploy is triggered by merging `dev` into `production` and pushing.
 
@@ -280,13 +280,17 @@ Dark mode via CSS class (`dark` on `<html>`). Tailwind v4 with `@custom-variant 
 
 `<Section id="..." eyebrow="..." title="...">` from `src/components/ui/Section.tsx` — wraps in `<Container>` + Framer Motion scroll-reveal (`whileInView`, `once: true`). Nav anchors match `id` props.
 
+**Anchor placement:** the `id` is on a `<div id={id} className="relative -top-6" />` placed inside the `<Container>`, immediately before the `motion.div` content — NOT on the `<section>` element itself. This ensures the scroll destination lands at the heading (not at the section's `py-20/py-28` top padding). The `-top-6` (−24px) gives breathing room equal to `Container`'s `px-6` horizontal padding.
+
 Section components must **not** have `scroll-mt-*` — `scroll-padding-top: 4rem` on `html` handles the offset.
 
 ### Scroll spy
 
 `useScrollSpy` returns `[activeId, notifyNavClick]`. Listens to `scroll`, compares `absoluteTop` against `scrollY + 250`. Last section forced active at bottom. **Do not use IntersectionObserver.**
 
-`notifyNavClick(id)` must be called from every nav `<a onClick>` — sets active immediately and suppresses spy for 1200ms.
+`notifyNavClick(id)` must be called from every nav click handler — sets active immediately and suppresses spy for 1200ms.
+
+**Mobile menu nav items use `<button type="button">`** (not `<a href>`). iOS Safari can fire hash navigation before `e.preventDefault()` takes effect, scrolling the page to the wrong position. The mobile menu buttons call `setOpen(false)` then `setTimeout(400ms)` → `window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 64, behavior: 'smooth' })`. Desktop nav links still use `<a href="#id">` with CSS `scroll-padding-top`.
 
 ### View Transitions
 
@@ -351,6 +355,19 @@ Cache: `localStorage('github_activity_cache')`, TTL 5 minutes. `cache: 'no-store
 - `storage` events → cross-tab sync when admin saves
 - `refreshContent()` — re-fetches from API; called after `putContent()` so live site updates immediately
 - `useContent()` → `{ content: RawContent | null, refreshContent }`
+
+### Mobile layout
+
+Patterns established for responsive behavior:
+
+- **Text justification** (`src/index.css`): `@media (max-width: 639px)` applies `text-align: justify; hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word` to all `p` elements. `hyphens: auto` prevents word-spacing rivers.
+- **Showcase grid** (`ProjectsSection.tsx`): uses `flex flex-col sm:flex-row` — single column on mobile, two columns on `sm+`.
+- **Video thumbnail** (`VideoProjectCard.tsx`): `onLoadedMetadata` handler seeks to `currentTime = 0.001` to force first-frame decode on mobile. Container has `bg-zinc-100 dark:bg-zinc-800` as fallback while loading.
+- **Hero scroll indicator** (`Hero.tsx`): section uses `pb-28 sm:pb-16` so the absolute-positioned scroll arrow doesn't overlap the stacked InfraStatusPanel on mobile.
+- **Hero CTA buttons** (`Hero.tsx`): container is `flex items-center gap-2 sm:gap-4` (no wrap). Each button has `flex-1 whitespace-nowrap sm:flex-none` — fills the row equally on mobile, auto-size on desktop.
+- **Button `lg` size** (`src/components/ui/Button.tsx`): responsive — `px-4 py-2 text-sm` on mobile, `sm:px-6 sm:py-3 sm:text-base` on desktop.
+- **Footer top row** (`Footer.tsx`): always `flex flex-row items-center justify-between` — name + links always on one line.
+- **Contact submit button** (`ContactSection.tsx`): `w-full justify-center` — full width matching the message textarea.
 
 ### ContactSection
 
