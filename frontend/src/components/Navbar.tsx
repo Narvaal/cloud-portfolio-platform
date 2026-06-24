@@ -13,7 +13,7 @@ function LangSlot({ lang }: { lang: string }) {
   return (
     <span
       className="relative inline-block overflow-hidden"
-      style={{ height: '1em', width: '2.2ch', verticalAlign: 'middle' }}
+      style={{ height: '1em', width: '2.2ch' }}
     >
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
@@ -81,7 +81,7 @@ export function Navbar() {
                   .startViewTransition(() => { flushSync(() => setLang(next)) })
               }}
               aria-label={t.langSwitcher.ariaLabel}
-              className="rounded-lg px-2.5 py-2 font-mono text-sm font-bold text-accent-600 transition-colors hover:bg-zinc-100 dark:text-accent-400 dark:hover:bg-zinc-800"
+              className="flex items-center rounded-lg px-2.5 py-2 font-mono text-sm font-bold text-accent-600 transition-colors hover:bg-zinc-100 dark:text-accent-400 dark:hover:bg-zinc-800"
             >
               <LangSlot lang={lang === 'en' ? 'pt' : 'en'} />
             </button>
