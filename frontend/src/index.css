@@ -94,6 +94,12 @@ html[data-vt="lang"]::view-transition-new(root) {
   z-index: 1;
 }
 
+@media (max-width: 639px) {
+  p {
+    text-align: justify;
+  }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

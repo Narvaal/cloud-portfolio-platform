@@ -43,13 +43,16 @@ export function VideoProjectCard({ project, tryItLabel, expandLabel, collapseLab
       <div onClick={toggle} className="cursor-pointer select-none">
 
         {/* Video area */}
-        <div className="relative overflow-hidden" style={{ aspectRatio: project.aspectRatio ?? '1 / 1' }}>
+        <div className="relative overflow-hidden bg-zinc-100 dark:bg-zinc-800" style={{ aspectRatio: project.aspectRatio ?? '1 / 1' }}>
           <video
             ref={videoRef}
             muted
             loop
             playsInline
             preload="metadata"
+            onLoadedMetadata={() => {
+              if (videoRef.current) videoRef.current.currentTime = 0.001
+            }}
             className="h-full w-full object-cover"
           >
             <source src={project.videoUrl} type="video/mp4" />

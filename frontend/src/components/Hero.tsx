@@ -140,7 +140,7 @@ export function Hero() {
   }, [])
 
   return (
-    <section className="relative flex min-h-svh items-center pb-16 pt-24">
+    <section className="relative flex min-h-svh items-center pb-28 pt-24 sm:pb-16">
       <Container>
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_360px]">
 
