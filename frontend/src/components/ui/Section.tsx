@@ -20,8 +20,9 @@ export function Section({
   className = '',
 }: SectionProps) {
   return (
-    <section id={id} className={`py-20 sm:py-28 ${className}`}>
+    <section className={`py-20 sm:py-28 ${className}`}>
       <Container>
+        <div id={id} />
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
