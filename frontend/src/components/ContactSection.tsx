@@ -20,12 +20,18 @@ const inputClass =
 const inputErrorClass =
   'w-full rounded-lg border border-red-400 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-red-500 dark:bg-zinc-900 dark:text-zinc-100'
 
-function classifyError(msg: string): FieldErrors {
+function classifyError(
+  msg: string,
+  errors: { nameTooLong: string; emailInvalid: string; messageTooLong: string; missingFields: string; rateLimit: string },
+  fallback: string,
+): FieldErrors {
   const lower = msg.toLowerCase()
-  if (lower.includes('name')) return { name: msg }
-  if (lower.includes('email')) return { email: msg }
-  if (lower.includes('message')) return { message: msg }
-  return { general: msg }
+  if (lower.includes('name')) return { name: errors.nameTooLong }
+  if (lower.includes('email')) return { email: errors.emailInvalid }
+  if (lower.includes('message')) return { message: errors.messageTooLong }
+  if (lower.includes('missing')) return { general: errors.missingFields }
+  if (lower.includes('too many') || lower.includes('rate')) return { general: errors.rateLimit }
+  return { general: fallback }
 }
 
 export function ContactSection() {
@@ -61,7 +67,7 @@ export function ContactSection() {
     } catch (err) {
       setStatus('error')
       const msg = err instanceof Error ? err.message : ''
-      setFieldErrors(msg ? classifyError(msg) : { general: contact.error })
+      setFieldErrors(classifyError(msg, contact.errors, contact.error))
     }
   }
 

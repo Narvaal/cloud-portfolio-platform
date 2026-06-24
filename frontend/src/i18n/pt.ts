@@ -197,6 +197,13 @@ export const pt: Translations = {
     sending: 'Enviando…',
     success: 'Mensagem enviada! Entrarei em contato em breve.',
     error: 'Algo deu errado. Tente novamente ou me envie um e-mail diretamente.',
+    errors: {
+      nameTooLong: 'Nome muito longo (máximo 100 caracteres).',
+      emailInvalid: 'Insira um endereço de e-mail válido.',
+      messageTooLong: 'Mensagem muito longa (máximo 2000 caracteres).',
+      missingFields: 'Por favor, preencha todos os campos obrigatórios.',
+      rateLimit: 'Muitas mensagens enviadas. Tente novamente em uma hora.',
+    },
   },
 
   footer: {
