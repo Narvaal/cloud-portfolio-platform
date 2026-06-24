@@ -95,17 +95,7 @@ export function Navbar() {
               aria-label="Toggle theme"
               className="flex items-center justify-center rounded-lg p-2 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={theme}
-                  initial={{ rotate: -45, opacity: 0, scale: 0.7 }}
-                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                  exit={{ rotate: 45, opacity: 0, scale: 0.7 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                >
-                  {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
-                </motion.div>
-              </AnimatePresence>
+              {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
 
             {/* Mobile menu button */}
