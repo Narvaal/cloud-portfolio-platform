@@ -17,7 +17,7 @@ const variants: Record<Variant, string> = {
 
 const sizes: Record<Size, string> = {
   md: 'px-4 py-2 text-sm',
-  lg: 'px-6 py-3 text-base',
+  lg: 'px-4 py-2 text-sm sm:px-6 sm:py-3 sm:text-base',
 }
 
 interface CommonProps {
