@@ -196,6 +196,13 @@ export const en: Translations = {
     sending: 'Sending…',
     success: "Message sent! I'll be in touch soon.",
     error: 'Something went wrong. Please try again or email me directly.',
+    errors: {
+      nameTooLong: 'Name is too long (max 100 characters).',
+      emailInvalid: 'Please enter a valid email address.',
+      messageTooLong: 'Message is too long (max 2000 characters).',
+      missingFields: 'Please fill in all required fields.',
+      rateLimit: 'Too many messages sent. Please try again in an hour.',
+    },
   },
 
   footer: {

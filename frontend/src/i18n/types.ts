@@ -54,6 +54,13 @@ export interface Translations {
     sending: string
     success: string
     error: string
+    errors: {
+      nameTooLong: string
+      emailInvalid: string
+      messageTooLong: string
+      missingFields: string
+      rateLimit: string
+    }
   }
   footer: {
     built: string
