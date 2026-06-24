@@ -79,7 +79,7 @@ export function ProjectsSection() {
       </div>
 
       {/* Video showcase cards — two independent flex columns so expanding one never shifts the other */}
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 sm:flex-row">
         <div className="flex flex-1 flex-col gap-6">
           {projects.showcaseItems.filter((_, i) => i % 2 === 0).map((project, i) => (
             <VideoProjectCard
