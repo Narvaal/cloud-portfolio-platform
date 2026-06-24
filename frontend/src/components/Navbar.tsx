@@ -133,8 +133,11 @@ export function Navbar() {
                       notifyNavClick(item.id)
                       setOpen(false)
                       setTimeout(() => {
-                        document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                      }, 300)
+                        const el = document.getElementById(item.id)
+                        if (!el) return
+                        const top = el.getBoundingClientRect().top + window.scrollY - 64
+                        window.scrollTo({ top, behavior: 'smooth' })
+                      }, 350)
                     }}
                     className={`rounded-lg px-3 py-2 text-sm transition-colors ${
                       activeId === item.id
