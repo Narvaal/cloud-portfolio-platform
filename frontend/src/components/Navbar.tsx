@@ -13,7 +13,7 @@ function LangSlot({ lang }: { lang: string }) {
   return (
     <span
       className="relative inline-block overflow-hidden"
-      style={{ height: '1.15em', width: '2ch', verticalAlign: 'text-bottom' }}
+      style={{ height: '1.2em', width: '2.2ch', verticalAlign: 'text-bottom' }}
     >
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
@@ -70,7 +70,7 @@ export function Navbar() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {/* Language switcher */}
             <button
               onClick={() => {
@@ -81,7 +81,7 @@ export function Navbar() {
                   .startViewTransition(() => { flushSync(() => setLang(next)) })
               }}
               aria-label={t.langSwitcher.ariaLabel}
-              className="rounded-lg px-2 py-2 font-mono text-xs font-medium text-accent-600 transition-colors hover:bg-zinc-100 dark:text-accent-400 dark:hover:bg-zinc-800"
+              className="rounded-lg border border-zinc-200 px-2.5 py-1.5 font-mono text-sm font-semibold text-accent-600 transition-all hover:border-accent-400 hover:bg-accent-50 hover:shadow-sm dark:border-zinc-700 dark:text-accent-400 dark:hover:border-accent-500 dark:hover:bg-accent-500/10"
             >
               <LangSlot lang={lang} />
             </button>
@@ -93,13 +93,19 @@ export function Navbar() {
                 toggle({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
               }}
               aria-label="Toggle theme"
-              className="rounded-lg p-2 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
+              className="rounded-lg border border-zinc-200 p-2 text-zinc-500 transition-all hover:border-accent-400 hover:bg-accent-50 hover:text-accent-600 hover:shadow-sm dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-accent-500 dark:hover:bg-accent-500/10 dark:hover:text-accent-400"
             >
-              {theme === 'dark' ? (
-                <Sun className="size-4" />
-              ) : (
-                <Moon className="size-4" />
-              )}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={theme}
+                  initial={{ rotate: -45, opacity: 0, scale: 0.7 }}
+                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                  exit={{ rotate: 45, opacity: 0, scale: 0.7 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                >
+                  {theme === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
+                </motion.div>
+              </AnimatePresence>
             </button>
 
             {/* Mobile menu button */}
