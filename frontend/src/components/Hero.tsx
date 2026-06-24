@@ -181,7 +181,7 @@ export function Hero() {
             </p>
 
             <div className="flex items-center gap-2 sm:gap-4">
-              <Button href="#projects" size="lg" className="whitespace-nowrap">
+              <Button href="#projects" size="lg" className="flex-1 whitespace-nowrap sm:flex-none">
                 {t.hero.viewWork}
               </Button>
               <Button
@@ -189,7 +189,7 @@ export function Hero() {
                 variant="secondary"
                 size="lg"
                 download
-                className="whitespace-nowrap"
+                className="flex-1 whitespace-nowrap sm:flex-none"
               >
                 <Download className="size-4" />
                 {t.hero.downloadResume}
