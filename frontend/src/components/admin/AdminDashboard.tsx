@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BarChart2, FileText, Inbox, LayoutDashboard, LogOut, Pencil, Settings } from 'lucide-react'
+import { ArrowLeft, BarChart2, FileText, Inbox, LayoutDashboard, LogOut, Pencil, Settings } from 'lucide-react'
 import { getContacts } from '../../services/api'
 import { ResumeTab } from './tabs/ResumeTab'
 import { ContentTab } from './tabs/ContentTab'
@@ -79,7 +79,14 @@ export function AdminDashboard({ onLogout }: Props) {
           </ul>
         </nav>
 
-        <div className="border-t border-zinc-100 p-3 dark:border-zinc-800">
+        <div className="border-t border-zinc-100 p-3 space-y-0.5 dark:border-zinc-800">
+          <a
+            href="/"
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-300"
+          >
+            <ArrowLeft className="size-4 shrink-0" />
+            Back to Portfolio
+          </a>
           <button
             onClick={onLogout}
             className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-zinc-500 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
