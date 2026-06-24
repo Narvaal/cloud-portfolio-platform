@@ -22,7 +22,7 @@ export function Section({
   return (
     <section className={`py-20 sm:py-28 ${className}`}>
       <Container>
-        <div id={id} />
+        <div id={id} className="relative -top-6" />
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
