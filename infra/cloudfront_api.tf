@@ -21,7 +21,7 @@ resource "aws_cloudfront_origin_request_policy" "api" {
   headers_config {
     header_behavior = "whitelist"
     headers {
-      items = ["CloudFront-Viewer-Country"]
+      items = ["CloudFront-Viewer-Country", "Authorization"]
     }
   }
 

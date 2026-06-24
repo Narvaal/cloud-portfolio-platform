@@ -1,5 +1,6 @@
 import { DynamoDBClient, ScanCommand } from '@aws-sdk/client-dynamodb'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
+import { isAuthorized, UNAUTHORIZED } from './auth.mjs'
 
 const dynamo = new DynamoDBClient({})
 const CONTACTS_TABLE = process.env.CONTACTS_TABLE
@@ -10,7 +11,8 @@ const CORS = {
   'Content-Type': 'application/json',
 }
 
-export const handler = async () => {
+export const handler = async (event) => {
+  if (!(await isAuthorized(event))) return UNAUTHORIZED
   try {
     const result = await dynamo.send(new ScanCommand({ TableName: CONTACTS_TABLE }))
     const items = (result.Items ?? [])

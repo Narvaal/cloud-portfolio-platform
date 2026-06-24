@@ -1,6 +1,7 @@
 import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront'
+import { isAuthorized, UNAUTHORIZED } from './auth.mjs'
 
 const s3 = new S3Client({})
 const cf = new CloudFrontClient({ region: 'us-east-1' })
@@ -11,16 +12,17 @@ const PREFIX          = 'showcase/video/'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
   'Content-Type': 'application/json',
 }
 
 export const handler = async (event) => {
+  if (!(await isAuthorized(event))) return UNAUTHORIZED
+
   const method = event.requestContext?.http?.method ?? 'GET'
   const path   = event.rawPath ?? ''
 
-  // GET /video/list
-  if (method === 'GET' && path === '/video/list') {
+  if (method === 'GET' && path.endsWith('/video/list')) {
     const res = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: PREFIX }))
     const files = (res.Contents ?? [])
       .map(o => o.Key.replace(PREFIX, ''))
@@ -29,8 +31,7 @@ export const handler = async (event) => {
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ files }) }
   }
 
-  // GET /video/presign?filename=xxx.mp4
-  if (method === 'GET' && path === '/video/presign') {
+  if (method === 'GET' && path.endsWith('/video/presign')) {
     const filename = event.queryStringParameters?.filename
     if (!filename || !filename.endsWith('.mp4')) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'filename (.mp4) required' }) }
@@ -43,8 +44,7 @@ export const handler = async (event) => {
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ uploadUrl: url }) }
   }
 
-  // POST /video/publish
-  if (method === 'POST' && path === '/video/publish') {
+  if (method === 'POST' && path.endsWith('/video/publish')) {
     await cf.send(new CreateInvalidationCommand({
       DistributionId: DISTRIBUTION_ID,
       InvalidationBatch: {
@@ -55,8 +55,7 @@ export const handler = async (event) => {
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) }
   }
 
-  // DELETE /video/{filename}
-  if (method === 'DELETE' && path.startsWith('/video/')) {
+  if (method === 'DELETE' && path.includes('/video/')) {
     const filename = decodeURIComponent(event.pathParameters?.filename ?? '')
     if (!filename || !filename.endsWith('.mp4')) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'invalid filename' }) }

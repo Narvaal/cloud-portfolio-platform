@@ -16,6 +16,11 @@ resource "aws_apigatewayv2_stage" "default" {
   name        = "$default"
   auto_deploy = true
   tags        = local.tags
+
+  default_route_settings {
+    throttling_burst_limit = 50
+    throttling_rate_limit  = 20
+  }
 }
 
 # Stage "api" exposes all routes under /api/* — used by CloudFront behavior
@@ -25,6 +30,11 @@ resource "aws_apigatewayv2_stage" "api" {
   name        = "api"
   auto_deploy = true
   tags        = local.tags
+
+  default_route_settings {
+    throttling_burst_limit = 50
+    throttling_rate_limit  = 20
+  }
 }
 
 resource "aws_apigatewayv2_integration" "status" {
@@ -268,6 +278,29 @@ resource "aws_lambda_permission" "api_gw_content" {
   statement_id  = "AllowAPIGatewayInvokeContent"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.content.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
+}
+
+# ── Admin Auth ────────────────────────────────────────────────────────────────
+
+resource "aws_apigatewayv2_integration" "admin_auth" {
+  api_id                 = aws_apigatewayv2_api.portfolio.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.admin_auth.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "admin_auth" {
+  api_id    = aws_apigatewayv2_api.portfolio.id
+  route_key = "POST /admin/auth"
+  target    = "integrations/${aws_apigatewayv2_integration.admin_auth.id}"
+}
+
+resource "aws_lambda_permission" "api_gw_admin_auth" {
+  statement_id  = "AllowAPIGatewayInvokeAdminAuth"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.admin_auth.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.portfolio.execution_arn}/*/*"
 }

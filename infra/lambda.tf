@@ -66,6 +66,16 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
         Action   = ["dynamodb:PutItem", "dynamodb:Scan", "dynamodb:UpdateItem"]
         Resource = aws_dynamodb_table.contacts.arn
       },
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"]
+        Resource = aws_dynamodb_table.rate_limit.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:GetItem", "dynamodb:PutItem"]
+        Resource = aws_dynamodb_table.admin_sessions.arn
+      },
     ]
   })
 }
@@ -102,9 +112,10 @@ resource "aws_lambda_function" "contact" {
 
   environment {
     variables = {
-      CONTACT_EMAIL  = var.contact_email
-      CONTACTS_TABLE = aws_dynamodb_table.contacts.name
-      SETTINGS_TABLE = aws_dynamodb_table.settings.name
+      CONTACT_EMAIL       = var.contact_email
+      CONTACTS_TABLE      = aws_dynamodb_table.contacts.name
+      SETTINGS_TABLE      = aws_dynamodb_table.settings.name
+      RATE_LIMIT_TABLE    = aws_dynamodb_table.rate_limit.name
     }
   }
 }
@@ -116,6 +127,10 @@ data "archive_file" "contacts_lambda" {
     content  = file("${path.module}/../backend/functions/contacts/index.mjs")
     filename = "index.mjs"
   }
+  source {
+    content  = file("${path.module}/../backend/functions/_shared/auth.mjs")
+    filename = "auth.mjs"
+  }
 }
 
 data "archive_file" "contacts_patch_lambda" {
@@ -125,6 +140,10 @@ data "archive_file" "contacts_patch_lambda" {
     content  = file("${path.module}/../backend/functions/contacts-patch/index.mjs")
     filename = "index.mjs"
   }
+  source {
+    content  = file("${path.module}/../backend/functions/_shared/auth.mjs")
+    filename = "auth.mjs"
+  }
 }
 
 data "archive_file" "settings_lambda" {
@@ -133,6 +152,10 @@ data "archive_file" "settings_lambda" {
   source {
     content  = file("${path.module}/../backend/functions/settings/index.mjs")
     filename = "index.mjs"
+  }
+  source {
+    content  = file("${path.module}/../backend/functions/_shared/auth.mjs")
+    filename = "auth.mjs"
   }
 }
 
@@ -162,7 +185,8 @@ resource "aws_lambda_function" "settings" {
 
   environment {
     variables = {
-      SETTINGS_TABLE = aws_dynamodb_table.settings.name
+      SETTINGS_TABLE       = aws_dynamodb_table.settings.name
+      ADMIN_SESSIONS_TABLE = aws_dynamodb_table.admin_sessions.name
     }
   }
 }
@@ -173,6 +197,10 @@ data "archive_file" "resume_lambda" {
   source {
     content  = file("${path.module}/../backend/functions/resume/index.mjs")
     filename = "index.mjs"
+  }
+  source {
+    content  = file("${path.module}/../backend/functions/_shared/auth.mjs")
+    filename = "auth.mjs"
   }
 }
 
@@ -211,6 +239,7 @@ resource "aws_lambda_function" "resume" {
     variables = {
       S3_BUCKET                  = aws_s3_bucket.frontend.id
       CLOUDFRONT_DISTRIBUTION_ID = aws_cloudfront_distribution.frontend.id
+      ADMIN_SESSIONS_TABLE       = aws_dynamodb_table.admin_sessions.name
     }
   }
 }
@@ -227,7 +256,8 @@ resource "aws_lambda_function" "contacts_patch" {
 
   environment {
     variables = {
-      CONTACTS_TABLE = aws_dynamodb_table.contacts.name
+      CONTACTS_TABLE       = aws_dynamodb_table.contacts.name
+      ADMIN_SESSIONS_TABLE = aws_dynamodb_table.admin_sessions.name
     }
   }
 }
@@ -244,7 +274,8 @@ resource "aws_lambda_function" "contacts_get" {
 
   environment {
     variables = {
-      CONTACTS_TABLE = aws_dynamodb_table.contacts.name
+      CONTACTS_TABLE       = aws_dynamodb_table.contacts.name
+      ADMIN_SESSIONS_TABLE = aws_dynamodb_table.admin_sessions.name
     }
   }
 }
@@ -255,6 +286,10 @@ data "archive_file" "video_lambda" {
   source {
     content  = file("${path.module}/../backend/functions/video/index.mjs")
     filename = "index.mjs"
+  }
+  source {
+    content  = file("${path.module}/../backend/functions/_shared/auth.mjs")
+    filename = "auth.mjs"
   }
 }
 
@@ -294,6 +329,7 @@ resource "aws_lambda_function" "video" {
     variables = {
       S3_BUCKET                  = aws_s3_bucket.frontend.id
       CLOUDFRONT_DISTRIBUTION_ID = aws_cloudfront_distribution.frontend.id
+      ADMIN_SESSIONS_TABLE       = aws_dynamodb_table.admin_sessions.name
     }
   }
 }
@@ -321,6 +357,10 @@ data "archive_file" "content_lambda" {
   source {
     content  = file("${path.module}/../backend/functions/content/index.mjs")
     filename = "index.mjs"
+  }
+  source {
+    content  = file("${path.module}/../backend/functions/_shared/auth.mjs")
+    filename = "auth.mjs"
   }
 }
 
@@ -350,7 +390,49 @@ resource "aws_lambda_function" "content" {
 
   environment {
     variables = {
-      CONTENT_TABLE = aws_dynamodb_table.content.name
+      CONTENT_TABLE        = aws_dynamodb_table.content.name
+      ADMIN_SESSIONS_TABLE = aws_dynamodb_table.admin_sessions.name
+    }
+  }
+}
+
+data "archive_file" "admin_auth_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.build/admin-auth.zip"
+  source {
+    content  = file("${path.module}/../backend/functions/admin-auth/index.mjs")
+    filename = "index.mjs"
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_admin_auth_ssm" {
+  name = "${var.project_name}-lambda-admin-auth-ssm-${var.environment}"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ssm:GetParameter"]
+      Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/admin-secret"
+    }]
+  })
+}
+
+resource "aws_lambda_function" "admin_auth" {
+  function_name    = "${var.project_name}-admin-auth-${var.environment}"
+  filename         = data.archive_file.admin_auth_lambda.output_path
+  source_code_hash = data.archive_file.admin_auth_lambda.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
+  role             = aws_iam_role.lambda_exec.arn
+  timeout          = 10
+  tags             = local.tags
+
+  environment {
+    variables = {
+      ADMIN_SESSIONS_TABLE = aws_dynamodb_table.admin_sessions.name
+      SSM_REGION           = var.aws_region
     }
   }
 }

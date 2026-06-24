@@ -1,11 +1,14 @@
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
-import { DynamoDBClient, PutItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb'
+import { DynamoDBClient, PutItemCommand, GetItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
 
 const ses = new SESClient({})
 const dynamo = new DynamoDBClient({})
 const CONTACT_EMAIL_DEFAULT = process.env.CONTACT_EMAIL
 const CONTACTS_TABLE = process.env.CONTACTS_TABLE
 const SETTINGS_TABLE = process.env.SETTINGS_TABLE
+const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE
+const RATE_LIMIT_MAX = 3       // requests per window
+const RATE_LIMIT_WINDOW = 3600 // seconds (1 hour)
 
 async function getContactEmail() {
   if (!SETTINGS_TABLE) return CONTACT_EMAIL_DEFAULT
@@ -154,6 +157,43 @@ function buildText({ name, email, message, timeOnSite, timezone, locale, country
   return [`Hey Alessandro!\n`, `De: ${name} <${email}>\n`, message, meta ? `\n${'─'.repeat(40)}\nSobre o visitante\n${meta}` : ''].join('\n')
 }
 
+async function checkRateLimit(ip) {
+  if (!RATE_LIMIT_TABLE || !ip) return false
+  const now = Math.floor(Date.now() / 1000)
+  const key = `contact#${ip}`
+  const existing = await dynamo.send(new GetItemCommand({
+    TableName: RATE_LIMIT_TABLE,
+    Key: { pk: { S: key } },
+  }))
+  if (existing.Item) {
+    const expiry = Number(existing.Item.ttl?.N ?? 0)
+    const count  = Number(existing.Item.count?.N ?? 0)
+    if (now < expiry && count >= RATE_LIMIT_MAX) return true
+    if (now < expiry) {
+      await dynamo.send(new UpdateItemCommand({
+        TableName: RATE_LIMIT_TABLE,
+        Key: { pk: { S: key } },
+        UpdateExpression: 'ADD #c :inc',
+        ExpressionAttributeNames: { '#c': 'count' },
+        ExpressionAttributeValues: { ':inc': { N: '1' } },
+      }))
+    } else {
+      await dynamo.send(new PutItemCommand({
+        TableName: RATE_LIMIT_TABLE,
+        Item: { pk: { S: key }, count: { N: '1' }, ttl: { N: String(now + RATE_LIMIT_WINDOW) } },
+      }))
+    }
+  } else {
+    await dynamo.send(new PutItemCommand({
+      TableName: RATE_LIMIT_TABLE,
+      Item: { pk: { S: key }, count: { N: '1' }, ttl: { N: String(now + RATE_LIMIT_WINDOW) } },
+    }))
+  }
+  return false
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export const handler = async (event) => {
   try {
     const body = JSON.parse(event.body ?? '{}')
@@ -163,8 +203,23 @@ export const handler = async (event) => {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing required fields' }) }
     }
 
+    if (name.trim().length > 100) {
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Name too long (max 100 characters)' }) }
+    }
+    if (email.trim().length > 254 || !EMAIL_REGEX.test(email.trim())) {
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid email address' }) }
+    }
+    if (message.trim().length > 2000) {
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Message too long (max 2000 characters)' }) }
+    }
+
+    const ip = event.requestContext?.http?.sourceIp ?? null
+    const rateLimited = await checkRateLimit(ip)
+    if (rateLimited) {
+      return { statusCode: 429, headers: CORS, body: JSON.stringify({ error: 'Too many requests. Please try again in an hour.' }) }
+    }
+
     const country = event.headers?.['cloudfront-viewer-country'] ?? null
-    const ip      = event.requestContext?.http?.sourceIp ?? null
     const device  = parseDevice(event.headers?.['user-agent'])
 
     const data = { name, email, message, timeOnSite, timezone, locale, referrer, country, ip, device }
