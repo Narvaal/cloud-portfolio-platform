@@ -19,7 +19,7 @@ export function Footer() {
     <footer className="border-t border-zinc-100 dark:border-zinc-800">
       <Container>
         {/* Top row */}
-        <div className="flex flex-col items-start justify-between gap-6 py-8 sm:flex-row sm:items-center">
+        <div className="flex flex-row items-center justify-between gap-4 py-8">
           <div>
             <p className="font-mono text-sm font-medium text-zinc-900 dark:text-zinc-50">
               {profile.name.split(' ').slice(0, 2).join(' ')}
