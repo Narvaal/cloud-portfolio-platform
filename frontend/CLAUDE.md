@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+<!-- last updated: 2026-06-25 -->
+
 ## Git Workflow
 
 **Always commit to the `dev` branch.** Never commit directly to `production` or `main` without explicit human approval.
