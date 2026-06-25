@@ -85,7 +85,7 @@ resource "aws_lambda_function" "status" {
   filename         = data.archive_file.status_lambda.output_path
   source_code_hash = data.archive_file.status_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
   tags             = local.tags
@@ -105,7 +105,7 @@ resource "aws_lambda_function" "contact" {
   filename         = data.archive_file.contact_lambda.output_path
   source_code_hash = data.archive_file.contact_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 15
   tags             = local.tags
@@ -178,7 +178,7 @@ resource "aws_lambda_function" "settings" {
   filename         = data.archive_file.settings_lambda.output_path
   source_code_hash = data.archive_file.settings_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
   tags             = local.tags
@@ -230,7 +230,7 @@ resource "aws_lambda_function" "resume" {
   filename         = data.archive_file.resume_lambda.output_path
   source_code_hash = data.archive_file.resume_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 15
   tags             = local.tags
@@ -249,7 +249,7 @@ resource "aws_lambda_function" "contacts_patch" {
   filename         = data.archive_file.contacts_patch_lambda.output_path
   source_code_hash = data.archive_file.contacts_patch_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
   tags             = local.tags
@@ -267,7 +267,7 @@ resource "aws_lambda_function" "contacts_get" {
   filename         = data.archive_file.contacts_lambda.output_path
   source_code_hash = data.archive_file.contacts_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
   tags             = local.tags
@@ -320,7 +320,7 @@ resource "aws_lambda_function" "video" {
   filename         = data.archive_file.video_lambda.output_path
   source_code_hash = data.archive_file.video_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 15
   tags             = local.tags
@@ -339,7 +339,7 @@ resource "aws_lambda_function" "visitors" {
   filename         = data.archive_file.visitors_lambda.output_path
   source_code_hash = data.archive_file.visitors_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
   tags             = local.tags
@@ -383,7 +383,7 @@ resource "aws_lambda_function" "content" {
   filename         = data.archive_file.content_lambda.output_path
   source_code_hash = data.archive_file.content_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
   tags             = local.tags
@@ -424,7 +424,7 @@ resource "aws_lambda_function" "admin_auth" {
   filename         = data.archive_file.admin_auth_lambda.output_path
   source_code_hash = data.archive_file.admin_auth_lambda.output_base64sha256
   handler          = "index.handler"
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   role             = aws_iam_role.lambda_exec.arn
   timeout          = 10
   tags             = local.tags
