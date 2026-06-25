@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+<!-- last updated: 2026-06-25 -->
+
 ## Git Workflow
 
 **Always commit to the `dev` branch.** Never commit directly to `production` or `main` without explicit human approval.
@@ -42,7 +44,7 @@ Cloud-native portfolio platform on AWS. React SPA frontend, fully serverless bac
 |---|---|---|
 | Hosting | S3 + CloudFront (OAC) | **live** |
 | CI/CD | GitHub Actions | **live** |
-| API | API Gateway HTTP API + Lambda (Node.js 20) | **live** |
+| API | API Gateway HTTP API + Lambda (Node.js 22) | **live** |
 | IaC | Terraform (`infra/`) | **live** |
 | Secrets / config | SSM Parameter Store | **live** |
 | Database | DynamoDB | **live** |
@@ -60,12 +62,16 @@ Frontend connects via `VITE_API_BASE_URL`. When unset locally, all API calls ret
 
 ### CI/CD — `.github/workflows/deploy-frontend.yml`
 
-Triggers on push to `production` (or `workflow_dispatch`). Steps:
-1. `actions/checkout@v4` with `fetch-depth: 0` — full history for `git log --no-merges`
-2. `npm ci` + `npm run build` (injects `VITE_*` secrets)
-3. `aws s3 sync dist/ s3://$S3_BUCKET/` — assets with long cache, `index.html` no-cache
-4. `aws cloudfront create-invalidation` — purges CDN cache
-5. `aws ssm put-parameter` — writes last real commit (non-merge) SHA/message/date to `/portfolio/*`
+Triggers on push to `production` **only for `frontend/**` path changes** (or `workflow_dispatch`). Steps:
+1. `actions/checkout@v4.2.2` with `fetch-depth: 0` — full history for `git log --no-merges`
+2. `actions/setup-node@v4.4.0` with `node-version: '22'`
+3. `npm ci` + `npm run build` (injects `VITE_*` secrets)
+4. `aws-actions/configure-aws-credentials@v4.1.0`
+5. `aws s3 sync dist/ s3://$S3_BUCKET/` — assets with long cache, `index.html` no-cache
+6. `aws cloudfront create-invalidation` — purges CDN cache
+7. `aws ssm put-parameter` — writes last real commit (non-merge) SHA/message/date to `/portfolio/*`
+
+**Important:** CI/CD only deploys the frontend. Terraform/infra changes require manual `terraform apply` in `infra/`.
 
 GitHub secrets required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_BASE_URL`, `VITE_GITHUB_TOKEN`, `VITE_ADMIN_PASSWORD`.
 
@@ -80,7 +86,7 @@ infra/
   lambda.tf            # Lambda exec role + all Lambda functions + IAM policies
   api_gateway.tf       # HTTP API, $default stage, "api" named stage (both throttled),
                        # all routes + Lambda permissions, POST /admin/auth route
-  cloudfront_api.tf    # CloudFront Function (not attached), origin request policy
+  cloudfront_api.tf    # origin request policy
                        # (whitelist: CloudFront-Viewer-Country + Authorization)
   dynamodb.tf          # all DynamoDB tables (including rate_limit and admin_sessions)
   ses.tf               # SES domain identity + Lambda SES send IAM policy
@@ -92,6 +98,16 @@ Run order: `terraform init` → `terraform plan` → `terraform apply`.
 Lambda hotfix without full CI/CD:
 ```bash
 terraform apply -target=aws_lambda_function.<name>
+```
+
+Lambda resource names in `lambda.tf`: `status`, `contact`, `contacts_get`, `contacts_patch`, `settings`, `resume`, `video`, `content`, `admin_auth`, `visitors`.
+
+Retrieve live resource IDs at any time:
+```bash
+terraform output
+# cloudfront_distribution_id = "E3GN9C58SUEB3Q"
+# s3_bucket_name             = "cloud-portfolio-frontend-356892335394"
+# api_gateway_url            = "https://58l9thztmj.execute-api.us-east-1.amazonaws.com/"
 ```
 
 SSM parameters:
@@ -114,7 +130,11 @@ Setup:
 - ACM wildcard cert (`*.alessandro-bezerra.me` + SAN `alessandro-bezerra.me`) in `us-east-1`, DNS validated via Route 53
 - CloudFront aliases currently `["portfolio.${domain_name}"]` only
 - Route 53 A alias records: `portfolio.` → CloudFront; `www.` and `@` records exist in Route 53 but are NOT in CloudFront aliases yet (blocked by Squarespace's old CloudFront distribution owning those CNAMEs)
-- **When Squarespace releases the aliases** (verify with `aws cloudfront list-conflicting-aliases --alias www.alessandro-bezerra.me --distribution-id <id>`): change `aliases` in `main.tf` to `["portfolio.${var.domain_name}", "www.${var.domain_name}", var.domain_name]` and run `terraform apply`
+- **When Squarespace releases the aliases** — verify first:
+  ```bash
+  aws cloudfront list-conflicting-aliases --alias www.alessandro-bezerra.me --distribution-id E3GN9C58SUEB3Q
+  ```
+  When `Quantity` returns `0`, change `aliases` in `main.tf` to `["portfolio.${var.domain_name}", "www.${var.domain_name}", var.domain_name]` and run `terraform apply`
 
 ### CloudFront dual-origin architecture
 
@@ -126,7 +146,7 @@ CloudFront distribution has two origins:
 
 **Authorization forwarding is critical** — without it, Bearer tokens sent by the admin frontend never reach Lambda. The whitelist policy (`cloudfront_api.tf`) explicitly includes `Authorization`.
 
-**API GW `api` named stage**: all Lambda routes are accessible at `/<id>.execute-api.us-east-1.amazonaws.com/api/*`. This means a request to `portfolio.../api/visitors` hits CloudFront → APIGW origin → `api` stage → `/visitors` route — no URI rewriting needed. The CloudFront Function in `cloudfront_api.tf` exists in state but is NOT attached to any behavior.
+**API GW `api` named stage**: all Lambda routes are accessible at `/<id>.execute-api.us-east-1.amazonaws.com/api/*`. This means a request to `portfolio.../api/visitors` hits CloudFront → APIGW origin → `api` stage → `/visitors` route — no URI rewriting needed. The `$default` stage also exists (referenced in `outputs.tf` for the invoke URL) but receives no CloudFront traffic.
 
 **API Gateway throttling**: both `$default` and `api` stages have `throttling_burst_limit = 50`, `throttling_rate_limit = 20`.
 
