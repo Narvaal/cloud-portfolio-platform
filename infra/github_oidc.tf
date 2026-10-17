@@ -59,9 +59,10 @@ resource "aws_ssm_parameter" "config_cloudfront_distribution_id" {
   tags  = local.tags
 }
 
+# Relative so every alias (root, www, portfolio.) calls its own /api/* — same-origin, no CORS
 resource "aws_ssm_parameter" "config_api_base_url" {
   name  = "/portfolio/config/api-base-url"
   type  = "String"
-  value = local.has_domain ? "https://portfolio.${var.domain_name}/api" : "https://${aws_cloudfront_distribution.frontend.domain_name}/api"
+  value = "/api"
   tags  = local.tags
 }

@@ -56,7 +56,7 @@ Frontend connects via `VITE_API_BASE_URL`. When unset locally, all API calls ret
 
 | Variable | Where set | Purpose |
 |---|---|---|
-| `VITE_API_BASE_URL` | SSM `/portfolio/config/api-base-url` (read by CI) + local `.env.production` | `https://portfolio.alessandro-bezerra.me/api` — routes through CloudFront `/api/*` behavior |
+| `VITE_API_BASE_URL` | SSM `/portfolio/config/api-base-url` (read by CI) + local `.env.production` | `/api` in production — relative, so every domain alias (root, `www.`, `portfolio.`) hits its own CloudFront `/api/*` behavior same-origin (CloudFront does not forward `Origin`, so cross-origin CORS preflights fail) |
 | `VITE_ADMIN_PASSWORD` | local `.env` only | Local dev fallback password — production uses SSM-backed server-side auth |
 
 **Never put secrets in `VITE_*` variables** — they are inlined into the public JS bundle. Secrets live in SSM SecureStrings and are only read by Lambdas.
