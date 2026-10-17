@@ -61,7 +61,7 @@ function CommitRow({ repo, sha, message, date, url }: { repo: string; sha: strin
 
 export function GitHubPanel() {
   const { t } = useLang()
-  const { data, loading } = useGithubActivity('Narvaal')
+  const { data, loading } = useGithubActivity()
   const [expanded, setExpanded] = useState(false)
   const gh = t.github
   const { expandLabel, collapseLabel } = t.projects

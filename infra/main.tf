@@ -1,8 +1,8 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  bucket_name  = "${var.project_name}-frontend-${data.aws_caller_identity.current.account_id}"
-  has_domain   = var.domain_name != ""
+  bucket_name = "${var.project_name}-frontend-${data.aws_caller_identity.current.account_id}"
+  has_domain  = var.domain_name != ""
   tags = {
     Project     = var.project_name
     Environment = var.environment
@@ -182,8 +182,8 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
 
-    cache_policy_id              = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized (AWS managed)
-    response_headers_policy_id   = aws_cloudfront_response_headers_policy.security.id
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized (AWS managed)
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
   }
 
   # SPA routing: return index.html for 403/404 so BrowserRouter works
@@ -300,7 +300,19 @@ data "aws_iam_policy_document" "github_actions" {
       "ssm:PutParameter",
     ]
     resources = [
-      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/*",
+      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/version",
+      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/last-*",
+    ]
+  }
+
+  statement {
+    sid    = "SSMReadDeployConfig"
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameters",
+    ]
+    resources = [
+      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/config/*",
     ]
   }
 }
@@ -376,12 +388,16 @@ resource "aws_cloudfront_response_headers_policy" "security" {
   }
 }
 
-# ── SSM: admin password (SecureString — set value manually after apply) ───────
+# ── SSM SecureStrings — managed outside Terraform so values never land in state ─
+#
+#   /portfolio/admin-secret   admin panel password
+#   /portfolio/github-token   fine-grained read-only GitHub PAT
+#
+# Set with: aws ssm put-parameter --name <name> --type SecureString --value '<v>' --overwrite
 
-resource "aws_ssm_parameter" "admin_secret" {
-  name  = "/portfolio/admin-secret"
-  type  = "SecureString"
-  value = "changeme"
-  tags  = local.tags
-  lifecycle { ignore_changes = [value] }
+removed {
+  from = aws_ssm_parameter.admin_secret
+  lifecycle {
+    destroy = false
+  }
 }

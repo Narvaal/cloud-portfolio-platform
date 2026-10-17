@@ -9,8 +9,8 @@ resource "aws_iam_role_policy" "lambda_ses_send" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["ses:SendEmail"]
+      Effect = "Allow"
+      Action = ["ses:SendEmail"]
       Resource = [
         aws_ses_domain_identity.contact.arn,
         "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*@${aws_ses_domain_identity.contact.domain}",

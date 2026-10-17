@@ -42,9 +42,12 @@ resource "aws_iam_role_policy" "lambda_ssm_read" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["ssm:GetParameters"]
-      Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/*"
+      Effect = "Allow"
+      Action = ["ssm:GetParameters"]
+      Resource = [
+        "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/version",
+        "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/last-*",
+      ]
     }]
   })
 }
@@ -112,10 +115,10 @@ resource "aws_lambda_function" "contact" {
 
   environment {
     variables = {
-      CONTACT_EMAIL       = var.contact_email
-      CONTACTS_TABLE      = aws_dynamodb_table.contacts.name
-      SETTINGS_TABLE      = aws_dynamodb_table.settings.name
-      RATE_LIMIT_TABLE    = aws_dynamodb_table.rate_limit.name
+      CONTACT_EMAIL    = var.contact_email
+      CONTACTS_TABLE   = aws_dynamodb_table.contacts.name
+      SETTINGS_TABLE   = aws_dynamodb_table.settings.name
+      RATE_LIMIT_TABLE = aws_dynamodb_table.rate_limit.name
     }
   }
 }
@@ -433,6 +436,47 @@ resource "aws_lambda_function" "admin_auth" {
     variables = {
       ADMIN_SESSIONS_TABLE = aws_dynamodb_table.admin_sessions.name
       SSM_REGION           = var.aws_region
+    }
+  }
+}
+
+data "archive_file" "github_activity_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/.build/github-activity.zip"
+  source {
+    content  = file("${path.module}/../backend/functions/github-activity/index.mjs")
+    filename = "index.mjs"
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_github_token_ssm" {
+  name = "${var.project_name}-lambda-github-token-ssm-${var.environment}"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ssm:GetParameter"]
+      Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/portfolio/github-token"
+    }]
+  })
+}
+
+resource "aws_lambda_function" "github_activity" {
+  function_name    = "${var.project_name}-github-activity-${var.environment}"
+  filename         = data.archive_file.github_activity_lambda.output_path
+  source_code_hash = data.archive_file.github_activity_lambda.output_base64sha256
+  handler          = "index.handler"
+  runtime          = "nodejs22.x"
+  role             = aws_iam_role.lambda_exec.arn
+  timeout          = 15
+  tags             = local.tags
+
+  environment {
+    variables = {
+      GITHUB_USERNAME    = var.github_username
+      GITHUB_TOKEN_PARAM = "/portfolio/github-token"
     }
   }
 }

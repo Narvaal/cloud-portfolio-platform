@@ -4,12 +4,12 @@ output "cloudfront_domain_name" {
 }
 
 output "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID — add to GitHub secret CLOUDFRONT_DISTRIBUTION_ID"
+  description = "CloudFront distribution ID — also published to SSM /portfolio/config/cloudfront-distribution-id"
   value       = aws_cloudfront_distribution.frontend.id
 }
 
 output "s3_bucket_name" {
-  description = "S3 bucket name — add to GitHub secret S3_BUCKET"
+  description = "S3 bucket name — also published to SSM /portfolio/config/s3-bucket"
   value       = aws_s3_bucket.frontend.id
 }
 
@@ -25,6 +25,11 @@ output "github_actions_secret_access_key" {
 }
 
 output "api_gateway_url" {
-  description = "API Gateway base URL — add to GitHub secret VITE_API_BASE_URL"
+  description = "API Gateway base URL (frontend uses the CloudFront /api path from SSM /portfolio/config/api-base-url)"
   value       = aws_apigatewayv2_stage.default.invoke_url
+}
+
+output "github_actions_role_arn" {
+  description = "IAM role assumed by GitHub Actions via OIDC — set as GitHub repo variable AWS_ROLE_ARN"
+  value       = aws_iam_role.github_actions.arn
 }

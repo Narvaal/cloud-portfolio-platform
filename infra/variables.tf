@@ -31,3 +31,21 @@ variable "environment" {
     error_message = "environment must be prod, staging, or dev."
   }
 }
+
+variable "github_repository" {
+  description = "GitHub repository (owner/name) allowed to assume the deploy role via OIDC"
+  type        = string
+  default     = "Narvaal/cloud-portfolio-platform"
+}
+
+variable "github_deploy_branch" {
+  description = "Only workflows running on this branch can assume the deploy role"
+  type        = string
+  default     = "production"
+}
+
+variable "github_username" {
+  description = "GitHub user whose public activity is shown on the portfolio"
+  type        = string
+  default     = "Narvaal"
+}
