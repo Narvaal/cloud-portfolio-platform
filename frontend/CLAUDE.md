@@ -40,6 +40,8 @@ Cloud-native portfolio platform on AWS. React SPA frontend, fully serverless bac
 
 ### AWS architecture
 
+Region: **`sa-east-1` (São Paulo)** for all regional resources (S3, Lambda, API GW, DynamoDB, SSM, SES). Global: CloudFront (`PriceClass_All`, so Brazilian viewers hit São Paulo edges), Route 53, IAM. The ACM cert stays in `us-east-1` (CloudFront requirement) via the `aws.us_east_1` provider alias.
+
 | Layer | Tech | Status |
 |---|---|---|
 | Hosting | S3 + CloudFront (OAC) | **live** |
@@ -117,8 +119,8 @@ Retrieve live resource IDs at any time:
 ```bash
 terraform output
 # cloudfront_distribution_id = "E3GN9C58SUEB3Q"
-# s3_bucket_name             = "cloud-portfolio-frontend-356892335394"
-# api_gateway_url            = "https://58l9thztmj.execute-api.us-east-1.amazonaws.com/"
+# s3_bucket_name             = "cloud-portfolio-frontend-356892335394-sa-east-1"
+# api_gateway_url            = "https://d1c4udaci2.execute-api.sa-east-1.amazonaws.com/"
 ```
 
 SSM parameters:
@@ -129,7 +131,7 @@ SSM parameters:
 - `/portfolio/last-commit-date` — ISO 8601 committer date (written by CI)
 - `/portfolio/admin-secret` — **SecureString** — admin panel password. Set manually:
   ```bash
-  aws ssm put-parameter --name /portfolio/admin-secret --value "<password>" --type SecureString --overwrite --region us-east-1
+  aws ssm put-parameter --name /portfolio/admin-secret --value "<password>" --type SecureString --overwrite --region sa-east-1
   ```
 - `/portfolio/github-token` — **SecureString** — fine-grained read-only GitHub PAT used by the `github-activity` Lambda. Set manually the same way.
 - `/portfolio/config/*` — non-secret deploy config (bucket, distribution ID, API URL), managed by Terraform, read by CI.
@@ -142,13 +144,8 @@ Live URL: `https://portfolio.alessandro-bezerra.me`
 
 Setup:
 - ACM wildcard cert (`*.alessandro-bezerra.me` + SAN `alessandro-bezerra.me`) in `us-east-1`, DNS validated via Route 53
-- CloudFront aliases currently `["portfolio.${domain_name}"]` only
-- Route 53 A alias records: `portfolio.` → CloudFront; `www.` and `@` records exist in Route 53 but are NOT in CloudFront aliases yet (blocked by Squarespace's old CloudFront distribution owning those CNAMEs)
-- **When Squarespace releases the aliases** — verify first:
-  ```bash
-  aws cloudfront list-conflicting-aliases --alias www.alessandro-bezerra.me --distribution-id E3GN9C58SUEB3Q
-  ```
-  When `Quantity` returns `0`, change `aliases` in `main.tf` to `["portfolio.${var.domain_name}", "www.${var.domain_name}", var.domain_name]` and run `terraform apply`
+- CloudFront aliases: `portfolio.`, `www.` and the root domain — all three serve the same site
+- Route 53 A alias records for all three → CloudFront
 
 ### CloudFront dual-origin architecture
 
@@ -160,7 +157,7 @@ CloudFront distribution has two origins:
 
 **Authorization forwarding is critical** — without it, Bearer tokens sent by the admin frontend never reach Lambda. The whitelist policy (`cloudfront_api.tf`) explicitly includes `Authorization`.
 
-**API GW `api` named stage**: all Lambda routes are accessible at `/<id>.execute-api.us-east-1.amazonaws.com/api/*`. This means a request to `portfolio.../api/visitors` hits CloudFront → APIGW origin → `api` stage → `/visitors` route — no URI rewriting needed. The `$default` stage also exists (referenced in `outputs.tf` for the invoke URL) but receives no CloudFront traffic.
+**API GW `api` named stage**: all Lambda routes are accessible at `/<id>.execute-api.sa-east-1.amazonaws.com/api/*`. This means a request to `portfolio.../api/visitors` hits CloudFront → APIGW origin → `api` stage → `/visitors` route — no URI rewriting needed. The `$default` stage also exists (referenced in `outputs.tf` for the invoke URL) but receives no CloudFront traffic.
 
 **API Gateway throttling**: both `$default` and `api` stages have `throttling_burst_limit = 50`, `throttling_rate_limit = 20`.
 
@@ -179,10 +176,10 @@ CloudFront distribution has two origins:
 
 Contact email: `contact@alessandro-bezerra.me`
 
-- `ses.tf` uses `aws_ses_domain_identity` (not `aws_ses_email_identity`) — covers all `@alessandro-bezerra.me` addresses
-- Domain verified via `_amazonses.` TXT record in Route 53
-- SES IAM policy allows `identity/alessandro-bezerra.me` ARN plus wildcard `identity/*@alessandrobezerra.me`
-- **Email forwarding**: a separate Lambda (`redirectEmail`) in `us-east-2` receives SES receipt rule trigger. It strips the `Return-Path:` header (otherwise SES uses the Amazon bounce address as sender, which fails verification), sets `Source` to `contact@alessandro-bezerra.me`, and forwards to `alessandrobezerra100@gmail.com`. The `_amazonses.` TXT record has TWO values — one for `us-east-1` (sending) and one for `us-east-2` (receipt rules).
+- `ses.tf` uses `aws_sesv2_email_identity` for the domain in `sa-east-1` — covers all `@alessandro-bezerra.me` addresses
+- Verified via **Easy DKIM** (3 `_domainkey` CNAMEs managed by Terraform) — deliberately NOT via the `_amazonses.` TXT record, which holds manually-managed tokens for other regions
+- SES account is in sandbox in `sa-east-1` (can only send to verified identities — fine, contact form sends to itself)
+- **Email forwarding**: a separate Lambda (`redirectEmail`) in `us-east-2` receives SES receipt rule trigger. It strips the `Return-Path:` header (otherwise SES uses the Amazon bounce address as sender, which fails verification), sets `Source` to `contact@alessandro-bezerra.me`, and forwards to `alessandrobezerra100@gmail.com`. The `_amazonses.` TXT record has TWO values — `us-east-1` (legacy identity) and `us-east-2` (receipt rules). Don't let Terraform manage it.
 
 ### DynamoDB tables — all `PAY_PER_REQUEST`
 
