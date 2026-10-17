@@ -1,2 +1,29 @@
 aws/
 .idea/
+
+# Environment files (VITE_* values and local secrets)
+.env
+.env.*
+!.env*.example
+
+# Keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
+# Database dumps and backups
+*.sql
+*.dump
+*.bak
+*.sqlite
+*.sqlite3
+
+# OS / tooling
+.DS_Store
+.claude/settings.local.json
+
+# Local security audit report
+relatorio-seguranca.md
