@@ -82,7 +82,7 @@ GitHub secrets required: **none**. One repo *variable*: `AWS_ROLE_ARN` (from `te
 
 ```
 infra/
-  versions.tf          # provider AWS ~> 5.0
+  versions.tf          # provider AWS ~> 5.0, S3 backend
   variables.tf         # aws_region, project_name, environment, contact_email, domain_name
   main.tf              # S3, CloudFront (dual-origin + security headers policy), ACM wildcard cert,
                        # Route 53 A records, SSM deploy-info params, CI IAM policy
@@ -98,6 +98,13 @@ infra/
 ```
 
 Run order: `terraform init` → `terraform plan` → `terraform apply`.
+
+State lives in S3: `s3://cloud-portfolio-tf-state-356892335394/portfolio/terraform.tfstate` (sa-east-1, versioned, encrypted, TLS-only, native S3 lockfile — no DynamoDB lock table). The bucket is bootstrapped outside Terraform. Never keep `terraform.tfstate` locally.
+
+Local AWS auth is `aws login` (temporary credentials, no access keys). The AWS provider/backend can't read login sessions directly, so first run:
+```bash
+eval "$(aws configure export-credentials --format env)"
+```
 
 Lambda hotfix without full CI/CD:
 ```bash
