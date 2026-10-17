@@ -141,7 +141,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # US, Canada, Europe
-  aliases             = local.has_domain ? ["portfolio.${var.domain_name}"] : []
+  aliases             = local.has_domain ? ["portfolio.${var.domain_name}", "www.${var.domain_name}", var.domain_name] : []
   tags                = local.tags
 
   origin {
