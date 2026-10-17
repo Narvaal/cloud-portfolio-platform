@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: sa-east-1
 
 jobs:
   deploy:

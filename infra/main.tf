@@ -1,7 +1,7 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  bucket_name = "${var.project_name}-frontend-${data.aws_caller_identity.current.account_id}"
+  bucket_name = "${var.project_name}-frontend-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
   has_domain  = var.domain_name != ""
   tags = {
     Project     = var.project_name
@@ -18,6 +18,7 @@ data "aws_route53_zone" "main" {
 }
 
 resource "aws_acm_certificate" "frontend" {
+  provider                  = aws.us_east_1
   count                     = local.has_domain ? 1 : 0
   domain_name               = "*.${var.domain_name}"
   subject_alternative_names = [var.domain_name]
@@ -47,6 +48,7 @@ resource "aws_route53_record" "cert_validation" {
 }
 
 resource "aws_acm_certificate_validation" "frontend" {
+  provider                = aws.us_east_1
   count                   = local.has_domain ? 1 : 0
   certificate_arn         = aws_acm_certificate.frontend[0].arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
@@ -140,7 +142,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
-  price_class         = "PriceClass_100" # US, Canada, Europe
+  price_class         = "PriceClass_All" # includes South America edges (São Paulo)
   aliases             = local.has_domain ? ["portfolio.${var.domain_name}", "www.${var.domain_name}", var.domain_name] : []
   tags                = local.tags
 
