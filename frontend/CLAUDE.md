@@ -56,24 +56,27 @@ Frontend connects via `VITE_API_BASE_URL`. When unset locally, all API calls ret
 
 | Variable | Where set | Purpose |
 |---|---|---|
-| `VITE_API_BASE_URL` | GitHub secret + local `.env.production` | `https://portfolio.alessandro-bezerra.me/api` — routes through CloudFront `/api/*` behavior |
-| `VITE_GITHUB_TOKEN` | GitHub secret | Fine-grained read-only PAT — raises GitHub rate limit to 5000 req/h |
-| `VITE_ADMIN_PASSWORD` | GitHub secret | Local dev fallback password only — production uses SSM-backed server-side auth |
+| `VITE_API_BASE_URL` | SSM `/portfolio/config/api-base-url` (read by CI) + local `.env.production` | `https://portfolio.alessandro-bezerra.me/api` — routes through CloudFront `/api/*` behavior |
+| `VITE_ADMIN_PASSWORD` | local `.env` only | Local dev fallback password — production uses SSM-backed server-side auth |
+
+**Never put secrets in `VITE_*` variables** — they are inlined into the public JS bundle. Secrets live in SSM SecureStrings and are only read by Lambdas.
 
 ### CI/CD — `.github/workflows/deploy-frontend.yml`
 
 Triggers on push to `production` **only for `frontend/**` path changes** (or `workflow_dispatch`). Steps:
 1. `actions/checkout@v4.2.2` with `fetch-depth: 0` — full history for `git log --no-merges`
 2. `actions/setup-node@v4.4.0` with `node-version: '22'`
-3. `npm ci` + `npm run build` (injects `VITE_*` secrets)
-4. `aws-actions/configure-aws-credentials@v4.1.0`
-5. `aws s3 sync dist/ s3://$S3_BUCKET/` — assets with long cache, `index.html` no-cache
-6. `aws cloudfront create-invalidation` — purges CDN cache
-7. `aws ssm put-parameter` — writes last real commit (non-merge) SHA/message/date to `/portfolio/*`
+3. `npm ci` (before AWS credentials are configured)
+4. `aws-actions/configure-aws-credentials` — assumes IAM role via **GitHub OIDC** (no static keys)
+5. Reads `/portfolio/config/{s3-bucket,cloudfront-distribution-id,api-base-url}` from SSM
+6. `npm run build` with AWS credentials stripped from its environment
+7. `aws s3 sync dist/ s3://$S3_BUCKET/` — assets with long cache, `index.html` no-cache
+8. `aws cloudfront create-invalidation` — purges CDN cache
+9. `aws ssm put-parameter` — writes last real commit (non-merge) SHA/message/date to `/portfolio/*`
 
 **Important:** CI/CD only deploys the frontend. Terraform/infra changes require manual `terraform apply` in `infra/`.
 
-GitHub secrets required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `VITE_API_BASE_URL`, `VITE_GITHUB_TOKEN`, `VITE_ADMIN_PASSWORD`.
+GitHub secrets required: **none**. One repo *variable*: `AWS_ROLE_ARN` (from `terraform output github_actions_role_arn`). The role trust policy only accepts OIDC tokens from `Narvaal/cloud-portfolio-platform` on `refs/heads/production`.
 
 ### Terraform — `infra/`
 
@@ -82,7 +85,7 @@ infra/
   versions.tf          # provider AWS ~> 5.0
   variables.tf         # aws_region, project_name, environment, contact_email, domain_name
   main.tf              # S3, CloudFront (dual-origin + security headers policy), ACM wildcard cert,
-                       # Route 53 A records, SSM params (including /portfolio/admin-secret), IAM
+                       # Route 53 A records, SSM deploy-info params, CI IAM policy
   lambda.tf            # Lambda exec role + all Lambda functions + IAM policies
   api_gateway.tf       # HTTP API, $default stage, "api" named stage (both throttled),
                        # all routes + Lambda permissions, POST /admin/auth route
@@ -90,7 +93,8 @@ infra/
                        # (whitelist: CloudFront-Viewer-Country + Authorization)
   dynamodb.tf          # all DynamoDB tables (including rate_limit and admin_sessions)
   ses.tf               # SES domain identity + Lambda SES send IAM policy
-  outputs.tf           # CloudFront URL, API GW URL, S3 bucket, IAM keys
+  github_oidc.tf       # GitHub OIDC provider + deploy role + SSM /portfolio/config/* params
+  outputs.tf           # CloudFront URL, API GW URL, S3 bucket, GitHub Actions role ARN
 ```
 
 Run order: `terraform init` → `terraform plan` → `terraform apply`.
@@ -100,7 +104,7 @@ Lambda hotfix without full CI/CD:
 terraform apply -target=aws_lambda_function.<name>
 ```
 
-Lambda resource names in `lambda.tf`: `status`, `contact`, `contacts_get`, `contacts_patch`, `settings`, `resume`, `video`, `content`, `admin_auth`, `visitors`.
+Lambda resource names in `lambda.tf`: `status`, `contact`, `contacts_get`, `contacts_patch`, `settings`, `resume`, `video`, `content`, `admin_auth`, `visitors`, `github_activity`.
 
 Retrieve live resource IDs at any time:
 ```bash
@@ -120,7 +124,10 @@ SSM parameters:
   ```bash
   aws ssm put-parameter --name /portfolio/admin-secret --value "<password>" --type SecureString --overwrite --region us-east-1
   ```
-  Terraform creates it with `value = "changeme"` and `ignore_changes = [value]` — always set manually after first `terraform apply`.
+- `/portfolio/github-token` — **SecureString** — fine-grained read-only GitHub PAT used by the `github-activity` Lambda. Set manually the same way.
+- `/portfolio/config/*` — non-secret deploy config (bucket, distribution ID, API URL), managed by Terraform, read by CI.
+
+SecureStrings are **not managed by Terraform** so their values never end up in state.
 
 ### Custom domain — `portfolio.alessandro-bezerra.me`
 
@@ -245,6 +252,7 @@ video/index.mjs          # All operations auth required
 |---|---|---|---|
 | POST | `/admin/auth` | — | Password → session token (8h) |
 | GET | `/status` | — | SSM params → health + lastDeploy + lastCommit |
+| GET | `/github-activity` | — | `{ commits, repos }` — GitHub API proxied with SSM token, cached 5min in Lambda |
 | GET | `/visitors` | — | `{ count, countries }` |
 | POST | `/visitors` | — | increments counter → `{ count }` |
 | POST | `/contact` | — | validates + rate-limits + SES email + DynamoDB |
@@ -265,8 +273,9 @@ video/index.mjs          # All operations auth required
 
 Single `lambda_exec` role:
 - `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
-- `ssm:GetParameters` on `/portfolio/*`
+- `ssm:GetParameters` on `/portfolio/version` and `/portfolio/last-*` (status Lambda)
 - `ssm:GetParameter` on `/portfolio/admin-secret` (for admin-auth Lambda)
+- `ssm:GetParameter` on `/portfolio/github-token` (for github-activity Lambda)
 - `dynamodb:GetItem`, `dynamodb:UpdateItem`, `dynamodb:Scan` on visitors table
 - `dynamodb:PutItem`, `dynamodb:Scan`, `dynamodb:UpdateItem` on contacts table
 - `dynamodb:Scan`, `dynamodb:UpdateItem`, `dynamodb:GetItem` on settings table
@@ -392,12 +401,12 @@ Without faststart, browsers send a range request to the end of the file to read 
 
 ### GitHub activity
 
-`useGithubActivity` + `GitHubPanel` — hybrid data strategy:
+`useGithubActivity` + `GitHubPanel` → `GET /api/github-activity` (`backend/functions/github-activity`). The Lambda reads the PAT from SSM so it never reaches the browser; without `VITE_API_BASE_URL` the panel shows no data. Lambda data strategy:
 1. **Per-repo commits** (`GET /repos/{user}/{repo}/commits?sha=dev&per_page=3`): tries `dev` branch, falls back to `HEAD`. Always real-time.
 2. **Search API** (`GET /search/commits?q=author:{user}&sort=committer-date`): captures all repos/branches but has indexing delay.
 3. Merged, deduplicated by SHA, merge commits filtered, sorted newest-first, sliced to 3.
 
-Cache: `localStorage('github_activity_cache')`, TTL 5 minutes. `cache: 'no-store'` on all fetches.
+Cache: Lambda module memory (5 min) + `localStorage('github_activity_cache')` in the browser (5 min).
 
 **Note:** always `git push origin dev` before merging to production. Push-only-merge-commit to `production` creates PushEvents with empty `commits` payload — that's why the Events API is not used.
 
