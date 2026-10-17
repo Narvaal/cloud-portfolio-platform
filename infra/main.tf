@@ -258,16 +258,7 @@ resource "aws_s3_bucket_cors_configuration" "frontend" {
   }
 }
 
-# ── IAM user for GitHub Actions CI/CD ────────────────────────────────────────
-
-resource "aws_iam_user" "github_actions" {
-  name = "${var.project_name}-github-actions-${var.environment}"
-  tags = local.tags
-}
-
-resource "aws_iam_access_key" "github_actions" {
-  user = aws_iam_user.github_actions.name
-}
+# ── IAM policy for GitHub Actions CI/CD (attached to the OIDC role) ──────────
 
 data "aws_iam_policy_document" "github_actions" {
   statement {
@@ -349,12 +340,6 @@ resource "aws_ssm_parameter" "last_commit_message" {
   value = "initial"
   tags  = local.tags
   lifecycle { ignore_changes = [value] }
-}
-
-resource "aws_iam_user_policy" "github_actions" {
-  name   = "${var.project_name}-github-actions-policy-${var.environment}"
-  user   = aws_iam_user.github_actions.name
-  policy = data.aws_iam_policy_document.github_actions.json
 }
 
 # ── CloudFront security headers ───────────────────────────────────────────────

@@ -1,9 +1,8 @@
 # ── GitHub Actions OIDC — short-lived credentials, no static keys ─────────────
 
-resource "aws_iam_openid_connect_provider" "github" {
-  url            = "https://token.actions.githubusercontent.com"
-  client_id_list = ["sts.amazonaws.com"]
-  tags           = local.tags
+# The provider is account-wide and shared with other projects — reference it, never own it
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
 }
 
 data "aws_iam_policy_document" "github_actions_assume" {
@@ -13,7 +12,7 @@ data "aws_iam_policy_document" "github_actions_assume" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
     }
 
     condition {

@@ -13,17 +13,6 @@ output "s3_bucket_name" {
   value       = aws_s3_bucket.frontend.id
 }
 
-output "github_actions_access_key_id" {
-  description = "IAM access key ID — add to GitHub secret AWS_ACCESS_KEY_ID"
-  value       = aws_iam_access_key.github_actions.id
-}
-
-output "github_actions_secret_access_key" {
-  description = "IAM secret key — add to GitHub secret AWS_SECRET_ACCESS_KEY"
-  value       = aws_iam_access_key.github_actions.secret
-  sensitive   = true
-}
-
 output "api_gateway_url" {
   description = "API Gateway base URL (frontend uses the CloudFront /api path from SSM /portfolio/config/api-base-url)"
   value       = aws_apigatewayv2_stage.default.invoke_url
