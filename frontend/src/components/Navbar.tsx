@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, Moon, Sun, X } from 'lucide-react'
 import { Container } from './ui/Container'
-import { profile } from '../data/profile'
+import { useSettings } from '../contexts/SettingsContext'
 import { useLang } from '../i18n'
 import { useScrollSpy } from '../hooks/useScrollSpy'
 import { useTheme } from '../hooks/useTheme'
@@ -34,6 +34,7 @@ function LangSlot({ lang }: { lang: string }) {
 export function Navbar() {
   const { theme, toggle } = useTheme()
   const { lang, t, setLang } = useLang()
+  const { settings } = useSettings()
   const [open, setOpen] = useState(false)
   const ids = t.nav.map((item) => item.id)
   const [activeId, notifyNavClick] = useScrollSpy(ids, 250)
@@ -49,7 +50,7 @@ export function Navbar() {
               className="h-8 w-8 object-contain dark:invert"
             />
             <span className="font-mono text-sm font-medium text-zinc-900 dark:text-zinc-50">
-              {profile.name.split(' ').slice(0, 2).join(' ')}
+              {settings.name.split(' ').slice(0, 2).join(' ')}
             </span>
           </a>
 

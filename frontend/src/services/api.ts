@@ -191,6 +191,11 @@ export async function getContacts(): Promise<ContactMessage[]> {
 
 // ── Content CMS ──────────────────────────────────────────────────────────────
 
+export interface ContentHero {
+  role: string
+  tagline: string
+}
+
 export interface ContentAbout {
   paragraphs: string[]
   skills?: string[]
@@ -204,6 +209,7 @@ export interface ContentProjects {
 type LangMap<T> = { en?: T; pt?: T }
 
 export interface RawContent {
+  hero?: LangMap<ContentHero>
   about?: LangMap<ContentAbout>
   experience?: LangMap<ExperienceItem[]>
   projects?: LangMap<ContentProjects>

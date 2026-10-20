@@ -8,10 +8,11 @@ import { putContent, getVideoList, getVideoUploadUrl, publishVideo, deleteVideo 
 import { en } from '../../../i18n/en'
 import { pt } from '../../../i18n/pt'
 
-type Section = 'about' | 'experience' | 'projects' | 'certifications'
+type Section = 'hero' | 'about' | 'experience' | 'projects' | 'certifications'
 type EditorLang = 'en' | 'pt'
 
 const sections: { id: Section; label: string }[] = [
+  { id: 'hero', label: 'Hero' },
   { id: 'about', label: 'About' },
   { id: 'experience', label: 'Experience' },
   { id: 'projects', label: 'Projects' },
@@ -200,6 +201,59 @@ function AvailabilityToggle() {
             : 'Hidden — badge is not showing'}
         </span>
       </div>
+    </div>
+  )
+}
+
+// ── Hero editor ───────────────────────────────────────────────────────────────
+
+function HeroEditor({ editorLang }: { editorLang: EditorLang }) {
+  const { content, refreshContent } = useContent()
+  const { settings, updateSetting } = useSettings()
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const [name, setName] = useState(settings.name)
+  // Remounted (via key) when the editor language switches, so these only init once per lang
+  const fallback = editorLang === 'en' ? en.hero : pt.hero
+  const [role, setRole] = useState(() => content?.hero?.[editorLang]?.role || fallback.role)
+  const [tagline, setTagline] = useState(() => content?.hero?.[editorLang]?.tagline || fallback.tagline)
+
+  async function handleSave() {
+    setSaving(true)
+    setSaved(false)
+    const trimmedName = name.trim()
+    await Promise.all([
+      trimmedName && trimmedName !== settings.name ? updateSetting('full_name', trimmedName) : Promise.resolve(),
+      putContent('hero', editorLang, { role: role.trim(), tagline: tagline.trim() }),
+    ])
+    await refreshContent()
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <SectionLabel>Name</SectionLabel>
+        <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+        <p className="mt-1 text-xs text-zinc-400">
+          Same for EN and PT — also used in the navbar and footer (first two words)
+        </p>
+      </div>
+
+      <div className="mb-6">
+        <SectionLabel>Role</SectionLabel>
+        <input value={role} onChange={(e) => setRole(e.target.value)} className={inputClass} />
+      </div>
+
+      <div className="mb-6">
+        <SectionLabel>Tagline</SectionLabel>
+        <AutoTextarea value={tagline} onChange={(e) => setTagline(e.target.value)} />
+      </div>
+
+      <SaveRow saving={saving} saved={saved} onSave={handleSave} />
     </div>
   )
 }
@@ -1154,6 +1208,7 @@ export function ContentTab() {
         ))}
       </div>
 
+      {active === 'hero'           && <HeroEditor key={editorLang} editorLang={editorLang} />}
       {active === 'about'          && <AboutEditor editorLang={editorLang} />}
       {active === 'experience'     && <ExperienceEditor editorLang={editorLang} />}
       {active === 'projects'       && <ProjectsEditor editorLang={editorLang} />}
