@@ -435,6 +435,7 @@ resource "aws_lambda_function" "admin_auth" {
   environment {
     variables = {
       ADMIN_SESSIONS_TABLE = aws_dynamodb_table.admin_sessions.name
+      RATE_LIMIT_TABLE     = aws_dynamodb_table.rate_limit.name
       SSM_REGION           = var.aws_region
     }
   }

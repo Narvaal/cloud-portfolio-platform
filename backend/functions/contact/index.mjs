@@ -157,6 +157,13 @@ function buildText({ name, email, message, timeOnSite, timezone, locale, country
   return [`Hey Alessandro!\n`, `De: ${name} <${email}>\n`, message, meta ? `\n${'─'.repeat(40)}\nSobre o visitante\n${meta}` : ''].join('\n')
 }
 
+// Behind CloudFront, sourceIp is the edge server; the viewer arrives as "ip:port"
+function clientIp(event) {
+  const viewer = event.headers?.['cloudfront-viewer-address']
+  if (viewer) return viewer.slice(0, viewer.lastIndexOf(':'))
+  return event.requestContext?.http?.sourceIp ?? null
+}
+
 async function checkRateLimit(ip) {
   if (!RATE_LIMIT_TABLE || !ip) return false
   const now = Math.floor(Date.now() / 1000)
@@ -213,7 +220,7 @@ export const handler = async (event) => {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Message too long (max 2000 characters)' }) }
     }
 
-    const ip = event.requestContext?.http?.sourceIp ?? null
+    const ip = clientIp(event)
     const rateLimited = await checkRateLimit(ip)
     if (rateLimited) {
       return { statusCode: 429, headers: CORS, body: JSON.stringify({ error: 'Too many requests. Please try again in an hour.' }) }

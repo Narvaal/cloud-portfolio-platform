@@ -43,6 +43,11 @@ export function LangProvider({ children }: { children: ReactNode }) {
     if (!content) return b
     return {
       ...b,
+      hero: {
+        ...b.hero,
+        role:    content.hero?.[lang]?.role    || b.hero.role,
+        tagline: content.hero?.[lang]?.tagline || b.hero.tagline,
+      },
       about: {
         ...b.about,
         paragraphs: content.about?.[lang]?.paragraphs ?? b.about.paragraphs,

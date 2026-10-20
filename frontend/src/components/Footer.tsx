@@ -1,7 +1,6 @@
 import { Mail } from 'lucide-react'
 import { Container } from './ui/Container'
 import { GitHubIcon, LinkedInIcon } from './ui/BrandIcons'
-import { profile } from '../data/profile'
 import { useLang } from '../i18n'
 import { useSettings } from '../contexts/SettingsContext'
 import { useInfraStatus } from '../hooks/useInfraStatus'
@@ -22,7 +21,7 @@ export function Footer() {
         <div className="flex flex-row items-center justify-between gap-4 py-8">
           <div>
             <p className="font-mono text-sm font-medium text-zinc-900 dark:text-zinc-50">
-              {profile.name.split(' ').slice(0, 2).join(' ')}
+              {settings.name.split(' ').slice(0, 2).join(' ')}
             </p>
             <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-600">
               Backend &amp; Cloud Engineer
@@ -61,7 +60,7 @@ export function Footer() {
         {/* Bottom row */}
         <div className="flex flex-col items-start justify-between gap-2 border-t border-zinc-100 py-4 text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-600 sm:flex-row sm:items-center">
           <p>
-            © {new Date().getFullYear()} {profile.name.split(' ').slice(0, 2).join(' ')} · {t.footer.built}
+            © {new Date().getFullYear()} {settings.name.split(' ').slice(0, 2).join(' ')} · {t.footer.built}
           </p>
           {status && (
             <p className="font-mono">

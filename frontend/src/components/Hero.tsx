@@ -6,7 +6,6 @@ import { Container } from './ui/Container'
 import { GitHubIcon, LinkedInIcon } from './ui/BrandIcons'
 import { GitHubPanel } from './GitHubPanel'
 import { InfraStatusPanel } from './InfraStatusPanel'
-import { profile } from '../data/profile'
 import { useLang } from '../i18n'
 import { useSettings } from '../contexts/SettingsContext'
 import { useVisitorCount } from '../hooks/useVisitorCount'
@@ -170,7 +169,7 @@ export function Hero() {
               </p>
             </div>
 
-            <h1 className="mb-3 text-5xl sm:text-7xl">{profile.name}</h1>
+            <h1 className="mb-3 text-5xl sm:text-7xl">{settings.name}</h1>
 
             <p className="mb-6 text-xl font-medium text-accent-600 dark:text-accent-400 sm:text-2xl">
               {t.hero.role}

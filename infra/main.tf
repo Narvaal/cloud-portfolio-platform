@@ -372,6 +372,33 @@ resource "aws_cloudfront_response_headers_policy" "security" {
       referrer_policy = "strict-origin-when-cross-origin"
       override        = true
     }
+    # The sha256 is the inline theme script in frontend/index.html — recompute it if that script changes.
+    # connect-src allows the bucket because admin uploads PUT straight to presigned S3 URLs.
+    content_security_policy {
+      content_security_policy = join("; ", [
+        "default-src 'self'",
+        "script-src 'self' 'sha256-ccXbINB5NB52u1PGL2aiai/4JE8CA5DzC1BocdDR/gM='",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data:",
+        "media-src 'self'",
+        "connect-src 'self' https://${aws_s3_bucket.frontend.bucket_regional_domain_name}",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "upgrade-insecure-requests",
+      ])
+      override = true
+    }
+  }
+
+  custom_headers_config {
+    items {
+      header   = "Permissions-Policy"
+      value    = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+      override = true
+    }
   }
 }
 

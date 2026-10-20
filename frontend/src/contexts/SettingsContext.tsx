@@ -3,6 +3,7 @@ import { getSettings, patchSetting } from '../services/api'
 import { profile } from '../data/profile'
 
 interface Settings {
+  name: string
   openToWork: boolean
   email: string
   githubUrl: string
@@ -17,6 +18,7 @@ interface SettingsContextValue {
 const STORAGE_KEY = 'portfolio_settings'
 
 const defaults: Settings = {
+  name: profile.name,
   openToWork: profile.openToWork,
   email: profile.email,
   githubUrl: profile.socials.find((s) => s.icon === 'github')?.href ?? '',
@@ -25,6 +27,7 @@ const defaults: Settings = {
 
 function rawToSettings(raw: Record<string, string>): Settings {
   return {
+    name: raw['full_name'] || defaults.name,
     openToWork: 'open_to_work' in raw ? raw['open_to_work'] === 'true' : defaults.openToWork,
     email: raw['contact_email'] || defaults.email,
     githubUrl: raw['github_url'] || defaults.githubUrl,
@@ -79,6 +82,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     await patchSetting(key, value)
     setSettings((prev) => {
       let next = { ...prev }
+      if (key === 'full_name') next = { ...next, name: value }
       if (key === 'open_to_work') next = { ...next, openToWork: value === 'true' }
       if (key === 'contact_email') next = { ...next, email: value }
       if (key === 'github_url') next = { ...next, githubUrl: value }
