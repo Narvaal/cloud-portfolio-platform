@@ -1,7 +1,7 @@
 import type { Translations } from './types'
 
 export const en: Translations = {
-  langSwitcher: { ariaLabel: 'Switch to Portuguese' },
+  langSwitcher: { ariaLabel: 'Change language' },
 
   nav: [
     { id: 'about', label: 'About' },

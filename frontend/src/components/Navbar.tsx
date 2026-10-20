@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Menu, Moon, Sun, X } from 'lucide-react'
+import { Check, ChevronDown, Languages, Menu, Moon, Sun, X } from 'lucide-react'
 import { Container } from './ui/Container'
 import { useSettings } from '../contexts/SettingsContext'
 import { useLang } from '../i18n'
@@ -9,31 +9,92 @@ import { useScrollSpy } from '../hooks/useScrollSpy'
 import { useTheme } from '../hooks/useTheme'
 import type { Lang } from '../i18n/types'
 
-function LangSlot({ lang }: { lang: string }) {
+const languages: { code: Lang; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'pt', label: 'Português' },
+]
+
+function LangMenu() {
+  const { lang, t, setLang } = useLang()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onPointerDown(e: PointerEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  function choose(next: Lang) {
+    setOpen(false)
+    if (next === lang) return
+    if (!('startViewTransition' in document)) { setLang(next); return }
+    document.documentElement.setAttribute('data-vt', 'lang')
+    ;(document as Document & { startViewTransition(cb: () => void): void })
+      .startViewTransition(() => { flushSync(() => setLang(next)) })
+  }
+
   return (
-    <span
-      className="relative inline-block overflow-hidden"
-      style={{ height: '16px', width: '2.2ch' }}
-    >
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={lang}
-          initial={{ y: '110%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '-110%' }}
-          transition={{ type: 'spring', stiffness: 350, damping: 30, mass: 0.8 }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
-          {lang.toUpperCase()}
-        </motion.span>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={t.langSwitcher.ariaLabel}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center gap-0.5 rounded-lg p-2 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
+      >
+        <Languages className="size-4" />
+        <ChevronDown className={`size-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-2 min-w-36 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            {languages.map((l) => (
+              <button
+                key={l.code}
+                type="button"
+                role="menuitemradio"
+                aria-checked={lang === l.code}
+                onClick={() => choose(l.code)}
+                className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                  lang === l.code
+                    ? 'text-accent-600 dark:text-accent-400'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50'
+                }`}
+              >
+                {l.label}
+                {lang === l.code && <Check className="size-3.5" />}
+              </button>
+            ))}
+          </motion.div>
+        )}
       </AnimatePresence>
-    </span>
+    </div>
   )
 }
 
 export function Navbar() {
   const { theme, toggle } = useTheme()
-  const { lang, t, setLang } = useLang()
+  const { t } = useLang()
   const { settings } = useSettings()
   const [open, setOpen] = useState(false)
   const ids = t.nav.map((item) => item.id)
@@ -72,21 +133,6 @@ export function Navbar() {
           </nav>
 
           <div className="flex items-center gap-1">
-            {/* Language switcher — shows TARGET language */}
-            <button
-              onClick={() => {
-                const next = (lang === 'en' ? 'pt' : 'en') as Lang
-                if (!('startViewTransition' in document)) { setLang(next); return }
-                document.documentElement.setAttribute('data-vt', 'lang')
-                ;(document as Document & { startViewTransition(cb: () => void): void })
-                  .startViewTransition(() => { flushSync(() => setLang(next)) })
-              }}
-              aria-label={t.langSwitcher.ariaLabel}
-              className="flex items-center rounded-lg px-2.5 py-2 font-mono text-sm font-bold text-accent-600 transition-colors hover:bg-zinc-100 dark:text-accent-400 dark:hover:bg-zinc-800"
-            >
-              <LangSlot lang={lang === 'en' ? 'pt' : 'en'} />
-            </button>
-
             {/* Theme toggle */}
             <button
               onClick={(e) => {
@@ -98,6 +144,8 @@ export function Navbar() {
             >
               {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
+
+            <LangMenu />
 
             {/* Mobile menu button */}
             <button
