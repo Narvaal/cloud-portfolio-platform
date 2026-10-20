@@ -2,7 +2,7 @@
 import type { Translations } from './types'
 
 export const pt: Translations = {
-  langSwitcher: { ariaLabel: 'Mudar para inglês' },
+  langSwitcher: { ariaLabel: 'Mudar idioma' },
 
   nav: [
     { id: 'about', label: 'Sobre' },
